@@ -44,7 +44,7 @@ class cal_return():
         l2 = sort[l / 5:2 * l / 5 - 1]
         l3 = sort[2 * l / 5:3 * l / 5 - 1]
         l4 = sort[3 * l / 5:4 * l / 5 - 1]
-        l5 = sort[4 * l / 5:l - 1]
+        l5 = sort[4 * l / 5:l]
         return l1, l2, l3, l4, l5
 
     def get_return_ports(self, st, size, indicator, f_type, time_length):
@@ -68,7 +68,7 @@ class cal_return():
             startDate = find_tradeday(startDate, trade_days)  # 调整为最近一个交易日
             df = self.get_stock(startDate, f_type)  # 根据频率,调整选股，若频率为日，则选择最近一个交易日，若频率是季度，则选择之前一个最近的季度
 
-            sql_getindustry = "select code, industry from stock_info where startdate < '%s'" % (startDate - dt.timedelta(days=365)).strftime("%Y-%m-%d")
+            sql_getindustry = "select code, industry from stock_info where startdate < '%s'" % (startDate - dt.timedelta(days=250)).strftime("%Y-%m-%d")
             df_code = pd.read_sql(sql_getindustry, self.engine)
             df = pd.merge(df_code, df)  #通过merge剔除新股
             df = self.industry_factor(df)
@@ -105,14 +105,14 @@ class cal_return():
         '''
         # 获取基础数据
         table = "daily"
-        factors = factors_d
         if f_type == 's':
             fdate = find_seasonday(fdate)
             table = "season"
-            factors = factors_s
 
         fdate = fdate.strftime("%Y-%m-%d")
-        sql = "select * from " + table + "_factors where date = '%s'" % fdate
+
+        sql = "select * from " + table + "_factors where date = '%s'" % fdate if f_type != 'k' else \
+            "select code, close, turn from daily_k where date = '%s'" % fdate
 
         df = pd.read_sql(sql, self.engine)
 
@@ -135,32 +135,31 @@ class cal_return():
         return df_all
 
 
-# lst = ['000001', '000002']
 cal = cal_return()
-# for code in lst:
-#     cal.get_price(lst, "2017-03-01", "2017-03-10")
 
-# factors_d = ['pe', 'pb', 'divide', 'mktcap']
-factors_d = ['mktcap']
+factors_d = ['pe', 'pb', 'divide', 'mktcap']
+# factors_d = ['mktcap']
+factors_k = ['close', 'turn']
 factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
              'cash_debt', 'oppo_profit', 'roe', 'roa', 'eb', 'total_rev_g', 'gross_margin_g', \
              'profit_g', 'oppo_profit_g']
-factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset']
+factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'close', 'turn']
 startdate = "2017-03-01"
 enddate = "2017-05-01"
 trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
 
-for fact in factors_d:
-    print fact
-    print cal.get_return_ports(startdate, 5, fact, 'd', 10)
-
-# for fact in factors_s:
+# for fact in factors_d:
 #     print fact
-#     print cal.get_return_ports(startdate, 1, fact, "s", 30)
+#     print cal.get_return_ports(startdate, 50, fact, 'd', 1)
+
+# for fact in factors_k:
+#     print fact
+#     print cal.get_return_ports(startdate, 50, fact, 'k', 1)
+
+for fact in factors_s:
+    print fact
+    print cal.get_return_ports(startdate, 1, fact, "s", 30)
 
 # cal.get_stock("2017-03-30", "s")
 #
-# a = np.array([1, np.nan])
-# df = DataFrame(a)
-# t = df.dropna()
-# print 1
+
