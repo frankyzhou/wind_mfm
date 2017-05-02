@@ -47,9 +47,9 @@ class wind():
         codes = all_stock[1]
         i = 0
         for code in codes:
-            if i < 2399:
-                i += 1
-                continue
+            # if i < 2399:
+            #     i += 1
+            #     continue
             try:
                 self.insert_k_data(code, startdate, enddate)
             except:
@@ -230,7 +230,7 @@ while 1:
     try:
         wind_ins = wind()
         # wind_ins.get_SectorConstituent("2017-04-19")
-        wind_ins.get_daily_k("2016-09-01", "2017-01-01")
+        wind_ins.get_daily_k("2017-04-20", "2017-05-02")
         # wind_ins.get_daily_factor("2017-04-20", "2017-04-21")
         # wind_ins.get_quarter_factor("2016-01-01", "2017-05-01")
         # wind_ins.cal_quarter_growth("2016-01-01", "2017-05-01")

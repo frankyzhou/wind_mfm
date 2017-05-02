@@ -26,7 +26,10 @@ class cal_return():
         price_new = self.get_price(l1, nextDate.strftime("%Y-%m-%d"))
         price_old = self.get_price(l1, startDate.strftime("%Y-%m-%d"))
         df = pd.merge(price_new, price_old, on="code", how="outer")  #合并行情
-        ratio = df.ix[:,1] / df.ix[:,2]
+        try:
+            ratio = df.ix[:,1] / df.ix[:,2]
+        except:
+            return np.nan
         return ratio.sum() / len(ratio)
 
     def get_split(self, df, indicator):
@@ -84,6 +87,55 @@ class cal_return():
             result["5"] = self.get_return_by_port(l5, startDate, nextDate) * (result["5"])
         return Series(result)
 
+    def get_return_ports_into_db(self, st, size, indicator, f_type):
+        '''
+        得到五组的投资回报
+        :param st:
+        :param size:
+        :param indicator:
+        :return:
+        '''
+        # return_1d = 1
+        # return_1w = 1
+        # result_1m = 1
+
+        for i in range(size):
+            # startDate = dt.datetime.strptime(st,"%Y-%m-%d") + dt.timedelta(days=1 * i)  # 开始时间,size作为基差
+            startDate = dt.datetime.strptime(trade_days[i], "%Y-%m-%d")
+            # startDate = find_tradeday(startDate, trade_days)  # 调整为最近一个交易日
+            nextDate_1d = dt.datetime.strptime(trade_days[i+1], "%Y-%m-%d")
+            nextDate_1w = dt.datetime.strptime(trade_days[i+5], "%Y-%m-%d")
+            nextDate_1m = dt.datetime.strptime(trade_days[i+20], "%Y-%m-%d")
+            df = self.get_stock(startDate, f_type)  # 根据频率,调整选股，若频率为日，则选择最近一个交易日，若频率是季度，则选择之前一个最近的季度
+
+            sql_getindustry = "select code, industry from stock_info where startdate < '%s'" % (startDate - dt.timedelta(days=250)).strftime("%Y-%m-%d")
+            df_code = pd.read_sql(sql_getindustry, self.engine)
+            df = pd.merge(df_code, df)  # 通过merge剔除新股
+            df = self.industry_factor(df)
+            df.index = df["code"]
+            df = df.iloc[:, 1:]
+
+            l1, l2, l3, l4, l5 = self.get_split(df, indicator)  # 按比重切分股票池
+            return_1d = self.get_return_by_port(l1, startDate, nextDate_1d) - self.get_return_by_port(l5, startDate, nextDate_1d)
+            return_1w = self.get_return_by_port(l1, startDate, nextDate_1w) - self.get_return_by_port(l5, startDate, nextDate_1w)
+            return_1m = self.get_return_by_port(l1, startDate, nextDate_1m) - self.get_return_by_port(l5, startDate, nextDate_1m)
+
+            return_1d = - return_1d if indicator in factors_positive else return_1d
+            return_1w = - return_1w if indicator in factors_positive else return_1w
+            return_1m = - return_1m if indicator in factors_positive else return_1m
+
+            sql_return = "insert into factor_return (factor, date, return_1d, return_1w, return_1m) \
+            values ('%s', '%s', '%s', '%s', '%s')" % (indicator, startDate.strftime("%Y-%m-%d"), get_no_nan(return_1d),\
+                                                      get_no_nan(return_1w), get_no_nan(return_1m))
+            try:
+                self.engine.execute(sql_return)
+            except:
+                print indicator + " in %s has exisit" % startDate.strftime("%Y-%m-%d")
+                sql_return = "update factor_return set  return_1d=%s, return_1w=%s, return_1m=%s where factor = '%s' and date='%s'"\
+                % (get_no_nan(return_1d),get_no_nan(return_1w), get_no_nan(return_1m), indicator, startDate.strftime("%Y-%m-%d"))
+                self.engine.execute(sql_return)
+            print startDate.strftime("%Y-%m-%d")
+
     def get_price(self, lst, date):
         df_list = []
         lst_str = ""
@@ -134,6 +186,8 @@ class cal_return():
         df_all = pd.concat(df_list)
         return df_all
 
+    def get_volity(self, lst):
+        sql = "select code, close from daily_k where code = '%s'" % "dd"
 
 cal = cal_return()
 
@@ -143,8 +197,11 @@ factors_k = ['close', 'turn']
 factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
              'cash_debt', 'oppo_profit', 'roe', 'roa', 'eb', 'total_rev_g', 'gross_margin_g', \
              'profit_g', 'oppo_profit_g']
+
 factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'close', 'turn']
-startdate = "2017-03-01"
+factors_positive = ['divide', 'pe']
+
+startdate = "2017-03-28"
 enddate = "2017-05-01"
 trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
 
@@ -156,10 +213,11 @@ trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
 #     print fact
 #     print cal.get_return_ports(startdate, 50, fact, 'k', 1)
 
-for fact in factors_s:
-    print fact
-    print cal.get_return_ports(startdate, 1, fact, "s", 30)
+# for fact in factors_s:
+#     print fact
+#     print cal.get_return_ports(startdate, 1, fact, "s", 30)
 
-# cal.get_stock("2017-03-30", "s")
-#
+for fact in factors_d:
+    print fact
+    print cal.get_return_ports_into_db(startdate, 60, fact, "d")
 
