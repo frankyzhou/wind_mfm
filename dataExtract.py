@@ -237,7 +237,7 @@ while 1:
         wind_ins = wind()
         # wind_ins.get_SectorConstituent("2017-04-19")
         # wind_ins.get_daily_k("2017-04-20", "2017-05-02")
-        wind_ins.get_daily_factor("2017-01-01", "2017-05-02")
+        wind_ins.get_daily_factor("2017-01-05", "2017-05-02")
         # wind_ins.get_quarter_factor("2016-01-01", "2017-05-01")
         # wind_ins.cal_quarter_growth("2016-01-01", "2017-05-01")
         break

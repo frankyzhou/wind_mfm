@@ -1,7 +1,6 @@
 # coding=utf-8
 from init import *
-from pandas import Series, DataFrame
-import numpy as np
+from pandas import Series
 from WindPy import *
 import tushare as ts
 import traceback
@@ -189,35 +188,37 @@ class cal_return():
         for code in lst:
             sql = "select code, close from daily_k where code = '%s'" % "dd"
 
-cal = cal_return()
 
-factors_d = ['pb', 'divide', 'mktcap']
-# factors_d = ['mktcap']
-factors_k = ['close', 'turn']
-factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
-             'cash_debt', 'oppo_profit', 'roe', 'roa', 'eb', 'total_rev_g', 'gross_margin_g', \
-             'profit_g', 'oppo_profit_g']
+if __name__ == "__main__":
+    cal = cal_return()
 
-factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'close', 'turn']
-factors_positive = ['divide', 'pe']
+    factors_d = ['pb', 'divide', 'mktcap']
+    # factors_d = ['mktcap']
+    factors_k = ['close', 'turn']
+    factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
+                 'cash_debt', 'oppo_profit', 'roe', 'roa', 'eb', 'total_rev_g', 'gross_margin_g', \
+                 'profit_g', 'oppo_profit_g']
 
-startdate = "2017-01-01"
-enddate = "2017-05-01"
-trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
+    factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'close', 'turn']
+    factors_positive = ['divide', 'pe']
 
-# for fact in factors_d:
-#     print fact
-#     print cal.get_return_ports(startdate, 50, fact, 'd', 1)
+    startdate = "2017-01-01"
+    enddate = "2017-05-01"
+    trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
 
-# for fact in factors_k:
-#     print fact
-#     print cal.get_return_ports(startdate, 50, fact, 'k', 1)
+    # for fact in factors_d:
+    #     print fact
+    #     print cal.get_return_ports(startdate, 50, fact, 'd', 1)
 
-# for fact in factors_s:
-#     print fact
-#     print cal.get_return_ports(startdate, 1, fact, "s", 30)
+    # for fact in factors_k:
+    #     print fact
+    #     print cal.get_return_ports(startdate, 50, fact, 'k', 1)
 
-for fact in factors_d:
-    print fact
-    print cal.get_return_ports_into_db(startdate, 60, fact, "d")
+    # for fact in factors_s:
+    #     print fact
+    #     print cal.get_return_ports(startdate, 1, fact, "s", 30)
+
+    for fact in factors_d:
+        print fact
+        print cal.get_return_ports_into_db(startdate, 60, fact, "d")
 

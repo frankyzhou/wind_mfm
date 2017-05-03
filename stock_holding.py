@@ -4,7 +4,7 @@ from init import *
 import pandas as pd
 import matplotlib.pyplot as plt
 from WindPy import *
-
+from getFactor import *
 
 def open_excel(file= 'file.xls'):
     try:
@@ -50,6 +50,7 @@ def get_stock_holding():
     code = u'科目代码'
     percent = u'市值占净值%'
     tables = excel_table_byindex('holdings.xls', 3)
+    sum_percent = 0
     for row in tables:
         if row[code][:4] == '1102' and len(row[code]) > 10:
             stock = {}
@@ -57,8 +58,11 @@ def get_stock_holding():
             maker = "H" if stock_code[0] == '6' else "Z"
             stock["code"] = stock_code + ".S" + maker
             stock["percent"] = row[percent]
+            sum_percent += row[percent]
             stock_lst.append(stock)
 
+    for stock in stock_lst:
+        stock["percent"] = stock["percent"] / sum_percent
     return stock_lst
 
 def get_cap_percent(df, stock_lst):
@@ -94,6 +98,12 @@ def get_indu_percent(df, stock_lst):
     for i in range(len(industry_pct)):
         industry_pct[i] = industry_pct[i] / sum_lst
     return industry_pct, industry_lst
+
+def find_index_rank(index, code):
+    for i in range(len(index)):
+        if index[i] == code:
+            return float(i)/len(index)
+    return 0.5
 
 class stock_holding():
     def __init__(self):
@@ -135,6 +145,16 @@ class stock_holding():
         # plt.savefig("indu_pct.png")
         # return industry_pct
 
+    def get_factor_percent(self, stock_lst, date_str):
+        cal = cal_return()
+        stock_df = cal.get_stock(dt.datetime.strptime(date_str, "%Y-%m-%d"), "d")
+        stock_df.index = stock_df["code"]
+        pe_lst = stock_df["pe"].dropna().order()
+        rank = 0
+        for stock in stock_lst:
+            rank += find_index_rank(pe_lst.index, stock["code"]) * stock["percent"]
+        print 1
+
 
 plt.figure()
 plt.rcParams['font.sans-serif']=['SimHei'] #用来正常显示中文标签
@@ -147,4 +167,5 @@ bench_stocklst = get_index_stocks("", "")
 s_h = stock_holding()
 # s_h.get_cap_percent(stock_lst, bench_stocklst)
 # s_h.get_inds_percent(stock_lst, bench_stocklst)
+s_h.get_factor_percent(stock_lst, "2017-01-03")
 print 1
