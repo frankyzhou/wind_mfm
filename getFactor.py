@@ -99,13 +99,11 @@ class cal_return():
         # return_1w = 1
         # result_1m = 1
 
-        for i in range(size):
-            # startDate = dt.datetime.strptime(st,"%Y-%m-%d") + dt.timedelta(days=1 * i)  # 开始时间,size作为基差
+        for i in range(min(size, len(trade_days))):
             startDate = dt.datetime.strptime(trade_days[i], "%Y-%m-%d")
-            # startDate = find_tradeday(startDate, trade_days)  # 调整为最近一个交易日
-            nextDate_1d = dt.datetime.strptime(trade_days[i+1], "%Y-%m-%d")
-            nextDate_1w = dt.datetime.strptime(trade_days[i+5], "%Y-%m-%d")
-            nextDate_1m = dt.datetime.strptime(trade_days[i+20], "%Y-%m-%d")
+            nextDate_1d = dt.datetime.strptime(trade_days[i+1], "%Y-%m-%d") if i < len(trade_days)-1 else startDate + dt.timedelta(days=1)
+            nextDate_1w = dt.datetime.strptime(trade_days[i+5], "%Y-%m-%d") if i < len(trade_days)-5 else startDate + dt.timedelta(days=7)
+            nextDate_1m = dt.datetime.strptime(trade_days[i+20], "%Y-%m-%d") if i < len(trade_days)-20 else startDate + dt.timedelta(days=30)
             df = self.get_stock(startDate, f_type)  # 根据频率,调整选股，若频率为日，则选择最近一个交易日，若频率是季度，则选择之前一个最近的季度
 
             sql_getindustry = "select code, industry from stock_info where startdate < '%s'" % (startDate - dt.timedelta(days=250)).strftime("%Y-%m-%d")
@@ -125,11 +123,12 @@ class cal_return():
             return_1m = - return_1m if indicator in factors_positive else return_1m
 
             sql_return = "insert into factor_return (factor, date, return_1d, return_1w, return_1m) \
-            values ('%s', '%s', '%s', '%s', '%s')" % (indicator, startDate.strftime("%Y-%m-%d"), get_no_nan(return_1d),\
+            values ('%s', '%s', %s, %s, %s)" % (indicator, startDate.strftime("%Y-%m-%d"), get_no_nan(return_1d),\
                                                       get_no_nan(return_1w), get_no_nan(return_1m))
             try:
                 self.engine.execute(sql_return)
             except:
+                traceback.print_exc()
                 print indicator + " in %s has exisit" % startDate.strftime("%Y-%m-%d")
                 sql_return = "update factor_return set  return_1d=%s, return_1w=%s, return_1m=%s where factor = '%s' and date='%s'"\
                 % (get_no_nan(return_1d),get_no_nan(return_1w), get_no_nan(return_1m), indicator, startDate.strftime("%Y-%m-%d"))
@@ -187,11 +186,12 @@ class cal_return():
         return df_all
 
     def get_volity(self, lst):
-        sql = "select code, close from daily_k where code = '%s'" % "dd"
+        for code in lst:
+            sql = "select code, close from daily_k where code = '%s'" % "dd"
 
 cal = cal_return()
 
-factors_d = ['pe', 'pb', 'divide', 'mktcap']
+factors_d = ['pb', 'divide', 'mktcap']
 # factors_d = ['mktcap']
 factors_k = ['close', 'turn']
 factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
@@ -201,7 +201,7 @@ factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asse
 factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'close', 'turn']
 factors_positive = ['divide', 'pe']
 
-startdate = "2017-03-28"
+startdate = "2017-01-01"
 enddate = "2017-05-01"
 trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
 

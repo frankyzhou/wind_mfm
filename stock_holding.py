@@ -146,4 +146,5 @@ stock_lst = get_stock_holding()
 bench_stocklst = get_index_stocks("", "")
 s_h = stock_holding()
 # s_h.get_cap_percent(stock_lst, bench_stocklst)
-s_h.get_inds_percent(stock_lst, bench_stocklst)
+# s_h.get_inds_percent(stock_lst, bench_stocklst)
+print 1

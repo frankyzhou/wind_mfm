@@ -47,9 +47,9 @@ class wind():
         codes = all_stock[1]
         i = 0
         for code in codes:
-            # if i < 2399:
-            #     i += 1
-            #     continue
+            if i < 999:
+                i += 1
+                continue
             try:
                 self.insert_k_data(code, startdate, enddate)
             except:
@@ -98,37 +98,43 @@ class wind():
         """
         trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
         for date_str in trade_days:
+            last_month = (dt.datetime.strptime(date_str, "%Y-%m-%d") - dt.timedelta(days=30)).strftime("%Y-%m-%d")
             all_stock = w.wset("SectorConstituent", u"date=" + date_str + u";sector=全部A股").Data  # 取全部A股股票代码、名称信息
             codes = all_stock[1]
             i = 0
             for code in codes:
-                try:
-                    sql_exist = "select code from daily_factor where code='%s' and date='%s'" % (code, date_str)
-                    result = self.engine.execute(sql_exist)
-                except:
-                    traceback.print_exc()
-                    result = ""
-                    self.engine = self.dao.get_engine() # 重新连接
+                # try:
+                #     sql_exist = "select code from daily_factors where code='%s' and date='%s'" % (code, date_str)
+                #     result = self.engine.execute(sql_exist)
+                # except:
+                #     traceback.print_exc()
+                #     result = ""
+                #     self.engine = self.dao.get_engine() # 重新连接
 
                 i += 1
                 if i % 100 == 0:
                     print i, date_str
 
-                if result == "" or result.rowcount == 0 :  # 不存在
-                    try:
-                        data = w.wss(code, "pe_ttm, pb_lf, dividendyield2, mkt_cap_ard",
-                              "rptDate=20161231;tradeDate=" + date_str).Data
-                        pe  = get_no_nan(data[0][0])
-                        pb  = get_no_nan(data[1][0])
-                        divide = get_no_nan(data[2][0])
-                        mktcap = get_no_nan(data[3][0])
-                        sql_insert = "insert into daily_factor (code, date, pe, pb , divide, mktcap) \
-                                                values ('%s', '%s', %s, %s, %s, %s)" \
-                                     % (code, date_str, pe, pb, divide, mktcap)
-                        self.engine.execute(sql_insert)
-                    except:
-                        traceback.print_exc()
-                        self.engine = self.dao.get_engine()  # 重新连接
+                # if result == "" or result.rowcount == 0 :  # 不存在
+                try:
+                    data = w.wss(code, "pe_ttm, pb_lf, dividendyield2, mkt_cap_ard, beta, stdevry",
+                          "startDate=%s;endDate=%s;period=1;returnType=1;\
+                          index=000001.SH;rptDate=20161231;tradeDate=%s" %(last_month, date_str, date_str)).Data
+                    pe  = get_no_nan(data[0][0])
+                    pb  = get_no_nan(data[1][0])
+                    divide = get_no_nan(data[2][0])
+                    mktcap = get_no_nan(data[3][0])
+                    beta = get_no_nan(data[4][0])
+                    std = get_no_nan(data[5][0])
+                    # sql_insert = "insert into daily_factors (code, date, pe, pb , divide, mktcap) \
+                    #                         values ('%s', '%s', %s, %s, %s, %s)" \
+                    #              % (code, date_str, pe, pb, divide, mktcap)
+                    sql_insert = "update daily_factors set beta=%s, std=%s where code='%s' and date='%s'" \
+                             %(beta, std, code, date_str)
+                    self.engine.execute(sql_insert)
+                except:
+                    traceback.print_exc()
+                    self.engine = self.dao.get_engine()  # 重新连接
 
     def get_quarter_factor(self, startdate, enddate):
         """
@@ -230,8 +236,8 @@ while 1:
     try:
         wind_ins = wind()
         # wind_ins.get_SectorConstituent("2017-04-19")
-        wind_ins.get_daily_k("2017-04-20", "2017-05-02")
-        # wind_ins.get_daily_factor("2017-04-20", "2017-04-21")
+        # wind_ins.get_daily_k("2017-04-20", "2017-05-02")
+        wind_ins.get_daily_factor("2017-01-01", "2017-05-02")
         # wind_ins.get_quarter_factor("2016-01-01", "2017-05-01")
         # wind_ins.cal_quarter_growth("2016-01-01", "2017-05-01")
         break
