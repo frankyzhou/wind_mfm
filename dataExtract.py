@@ -15,6 +15,11 @@ class wind():
         self.engine = self.dao.get_engine()
 
     def get_SectorConstituent(self, startdate):
+        '''
+        获得某个时间点的指数成分股
+        :param startdate:
+        :return:
+        '''
         all_stock = w.wset("SectorConstituent",u"date="+startdate+u";sector=全部A股").Data#取全部A股股票代码、名称信息
         codes = all_stock[1]
         names = all_stock[2]
@@ -40,16 +45,25 @@ class wind():
             if num % 100 == 0:
                 print num
 
-    def get_daily_k(self, startdate, enddate):
+    def get_daily_k(self, startdate, enddate=None, total=0, num=0):
         # trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
         # for date_str in trade_days:
-        all_stock = w.wset("SectorConstituent", u"date=" + enddate + u";sector=全部A股").Data  # 取全部A股股票代码、名称信息
-        codes = all_stock[1]
+        if enddate == None:
+            enddate = dt.datetime.now().strftime("%Y-%m-%d")
+        # all_stock = w.wset("SectorConstituent", u"date=" + enddate + u";sector=全部A股").Data  # 取全部A股股票代码、名称信息
+        # codes = all_stock[1]
         i = 0
-        for code in codes:
-            if i < 999:
-                i += 1
-                continue
+        print num, total
+        sql_stock = "SELECT distinct(code) FROM stock.daily_k"
+        lst = pd.read_sql(sql_stock, self.engine)
+        count = 0
+        len_lst = len(lst['code'])
+        avg = len_lst / total
+        for code in lst["code"][num*avg:min((num+1)*avg-1, len_lst-1)]:
+        # for code in codes[startNo:endNo]:
+            # if i < 999:
+            #     i += 1
+            #     continue
             try:
                 self.insert_k_data(code, startdate, enddate)
             except:
@@ -59,28 +73,40 @@ class wind():
                 print i
 
     def insert_k_data(self, code, startdate, enddate):
-        data = w.wsd(code, "open,high,low,close,volume,turn", startdate, enddate, "PriceAdj=F")
-        for i in range(len(data.Times)):
-            date_str = data.Times[i].strftime("%Y-%m-%d")
-            try:
-                sql_exist = "select code from daily_k where code='%s' and date='%s'" % (code, date_str)
-                result = self.engine.execute(sql_exist)
-            except:
-                result = ""
-                traceback.print_exc()
-                self.engine = self.dao.get_engine()
+        # data = w.wsd(code, "open,high,low,close,volume,turn", startdate, enddate, "PriceAdj=F")
+        # for i in range(len(data.Times)):
+        #     date_str = data.Times[i].strftime("%Y-%m-%d")
+        #     try:
+        #         sql_exist = "select code from daily_k where code='%s' and date='%s'" % (code, date_str)
+        #         result = self.engine.execute(sql_exist)
+        #     except:
+        #         result = ""
+        #         traceback.print_exc()
+        #         self.engine = self.dao.get_engine()
+        #
+        #     if result == "" or result.rowcount == 0:
+        #         try:
+        #             sql_insert = "insert into daily_k (code, date, open, close, high, low, volume, turn) values ('%s', '%s', %s, %s, %s, %s, %s, %s) " \
+        #                          % (code, date_str, get_no_nan(data.Data[0][i]), get_no_nan(data.Data[1][i]),get_no_nan(data.Data[2][i]),\
+        #                             get_no_nan(data.Data[3][i]), get_no_nan(data.Data[4][i]), get_no_nan(data.Data[5][i]))
+        #             self.engine.execute(sql_insert)
+        #         except:
+        #             self.engine = self.dao.get_engine()
+        #             traceback.print_exc()
+        #     # else:
+        #     #     break  # 已经存在，跳出
 
-            if result == "" or result.rowcount == 0:
-                try:
-                    sql_insert = "insert into daily_k (code, date, open, close, high, low, volume, turn) values ('%s', '%s', %s, %s, %s, %s, %s, %s) " \
-                                 % (code, date_str, get_no_nan(data.Data[0][i]), get_no_nan(data.Data[1][i]),get_no_nan(data.Data[2][i]),\
-                                    get_no_nan(data.Data[3][i]), get_no_nan(data.Data[4][i]), get_no_nan(data.Data[5][i]))
-                    self.engine.execute(sql_insert)
-                except:
-                    self.engine = self.dao.get_engine()
-                    traceback.print_exc()
-            # else:
-            #     break  # 已经存在，跳出
+        data = ts.get_h_data(code[:-3], start=startdate, end=enddate)
+        for i in range(len(data)):
+            print '-'*10 + str(i)
+            date_str = data.index[i].strftime("%Y-%m-%d")
+            try:
+                sql_insert = "update daily_k set open=%s, high=%s, close=%s, low=%s where code='%s' and date='%s'" \
+                             % (data['open'][i], data['high'][i], data['close'][i], data['low'][i], code, date_str)
+                self.engine.execute(sql_insert)
+            except:
+                self.engine = self.dao.get_engine()
+                traceback.print_exc()
 
     def get_daily_factor(self, startdate, enddate):
         """
@@ -99,42 +125,47 @@ class wind():
         trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
         for date_str in trade_days:
             last_month = (dt.datetime.strptime(date_str, "%Y-%m-%d") - dt.timedelta(days=30)).strftime("%Y-%m-%d")
-            all_stock = w.wset("SectorConstituent", u"date=" + date_str + u";sector=全部A股").Data  # 取全部A股股票代码、名称信息
-            codes = all_stock[1]
+            sql_stock = "select code from stock_info where startdate < '%s'" % (date_str)
+            # all_stock = w.wset("SectorConstituent", u"date=" + date_str + u";sector=全部A股").Data  # 取全部A股股票代码、名称信息
+            # codes = all_stock[1]
+            stocks = pd.read_sql(sql_stock, self.engine)
             i = 0
-            for code in codes:
-                # try:
-                #     sql_exist = "select code from daily_factors where code='%s' and date='%s'" % (code, date_str)
-                #     result = self.engine.execute(sql_exist)
-                # except:
-                #     traceback.print_exc()
-                #     result = ""
-                #     self.engine = self.dao.get_engine() # 重新连接
+            for code in stocks["code"]:
+                try:
+                    sql_exist = "select * from daily_factors where code='%s' and date='%s'" % (code, date_str)
+                    # result = self.engine.execute(sql_exist)
+                    df_stock = pd.read_sql(sql_exist, self.engine)
+                except:
+                    traceback.print_exc()
+                    # result = ""
+                    df_stock = pd.DataFrame()
+                    self.engine = self.dao.get_engine() # 重新连接
 
                 i += 1
                 if i % 100 == 0:
                     print i, date_str
 
-                # if result == "" or result.rowcount == 0 :  # 不存在
-                try:
-                    data = w.wss(code, "pe_ttm, pb_lf, dividendyield2, mkt_cap_ard, beta, stdevry",
-                          "startDate=%s;endDate=%s;period=1;returnType=1;\
-                          index=000001.SH;rptDate=20161231;tradeDate=%s" %(last_month, date_str, date_str)).Data
-                    pe  = get_no_nan(data[0][0])
-                    pb  = get_no_nan(data[1][0])
-                    divide = get_no_nan(data[2][0])
-                    mktcap = get_no_nan(data[3][0])
-                    beta = get_no_nan(data[4][0])
-                    std = get_no_nan(data[5][0])
-                    # sql_insert = "insert into daily_factors (code, date, pe, pb , divide, mktcap) \
-                    #                         values ('%s', '%s', %s, %s, %s, %s)" \
-                    #              % (code, date_str, pe, pb, divide, mktcap)
-                    sql_insert = "update daily_factors set beta=%s, std=%s where code='%s' and date='%s'" \
-                             %(beta, std, code, date_str)
-                    self.engine.execute(sql_insert)
-                except:
-                    traceback.print_exc()
-                    self.engine = self.dao.get_engine()  # 重新连接
+                if len(df_stock)==0 or any(df_stock.values[0][:-1] == [None]):  # 除去动量，至少有一个不存在
+                    try:
+                        data = w.wss(code, "pe_ttm, pb_lf, dividendyield2, mkt_cap_ard, beta, stdevry",
+                              "startDate=%s;endDate=%s;period=1;returnType=1;\
+                              index=000001.SH;tradeDate=%s" %(last_month, date_str, date_str)).Data
+                        pe  = get_no_nan(data[0][0])
+                        pb  = get_no_nan(data[1][0])
+                        divide = get_no_nan(data[2][0])
+                        mktcap = get_no_nan(data[3][0])
+                        beta = get_no_nan(data[4][0])
+                        std = get_no_nan(data[5][0])
+                        if len(df_stock)==0: # 全部不存在
+                            sql_insert = "insert into daily_factors (code, date, pe, pb , divide, mktcap, beta, std) \
+                            values ('%s', '%s', %s, %s, %s, %s, %s, %s)" % (code, date_str, pe, pb, divide, mktcap, beta, std)
+                        else:
+                            sql_insert = "update daily_factors set pe=%s, pb=%s, divide =%s, mktcap=%s, beta=%s, std=%s where code='%s' and date='%s'" \
+                                         % (pe, pb, divide, mktcap, beta, std, code, date_str)
+                        self.engine.execute(sql_insert)
+                    except:
+                        traceback.print_exc()
+                        self.engine = self.dao.get_engine()  # 重新连接
 
     def get_quarter_factor(self, startdate, enddate):
         """
@@ -182,9 +213,9 @@ class wind():
                             profit = get_no_nan(data[2][0])
                             oppo_profit = get_no_nan(data[3][0])
                             eps = get_no_nan(data[4][0])
-                            current = get_no_nan(data[5][0])
-                            debt_asset = get_no_nan(data[6][0])
-                            cash_debt = get_no_nan(data[7][0])
+                            current = get_no_nan(data[5][0])  # 流动比率
+                            debt_asset = get_no_nan(data[6][0])  # 资产负债率
+                            cash_debt = get_no_nan(data[7][0])  # 现金比率 流动现金/流动负债
                             roe = get_no_nan(data[8][0])
                             roa = get_no_nan(data[9][0])
                             eb = get_no_nan(data[10][0])
@@ -232,14 +263,50 @@ class wind():
             if num % 100 ==0:
                 print num
 
+    def get_momentum(self, startdate, enddate, total, num):
+        '''
+        获得股票的一月动量，并写入数据库中
+        :return:
+        '''
+        print num, total
+        sql_stock = "SELECT distinct(code) FROM stock.daily_k"
+        lst = pd.read_sql(sql_stock, self.engine)
+        count = 0
+        len_lst = len(lst['code'])
+        avg = len_lst / total
+        for code in lst["code"][num*avg:min((num+1)*avg-1, len_lst-1)]:
+            count += 1
+            if count % 10 == 0:
+                print count
+            # if count < 300:
+            #     continue
+            sql = "select date, close from daily_k where code = '%s' and date > '%s' and date < '%s' order by date" % (code, startdate, enddate)
+            df = pd.read_sql(sql, self.engine)
+            series = df['close']/df['close'].shift(20) - 1
+            for i in range(len(df)):
+                if not np.isnan(series[i]):
+                    try:
+                        sql = "insert into daily_factors (code, date, moment_1m) \
+                                                                          values('%s', '%s', % s)" % (
+                        get_maker(code), df["date"][i], get_no_nan(series[i]))
+                        self.engine.execute(sql)
+                    except:
+                        sql = "update daily_factors set moment_1m=%s where code='%s' and date='%s'"\
+                              % (get_no_nan(series[i]), get_maker(code), df["date"][i])
+                        self.engine.execute(sql)
+                        # self.engine = self.dao.get_engine()  # 重新连接
+
+
 while 1:
     try:
         wind_ins = wind()
         # wind_ins.get_SectorConstituent("2017-04-19")
-        # wind_ins.get_daily_k("2017-04-20", "2017-05-02")
-        wind_ins.get_daily_factor("2017-01-05", "2017-05-02")
-        # wind_ins.get_quarter_factor("2016-01-01", "2017-05-01")
-        # wind_ins.cal_quarter_growth("2016-01-01", "2017-05-01")
+        # wind_ins.get_daily_k("2016-01-01", total=2, num=0)
+        # wind_ins.get_daily_factor("2017-01-01", "2017-02-01")
+        # wind_ins.get_quarter_factor("2015-06-01", "2016-02-01")
+        # wind_ins.cal_quarter_growth("2015-06-01", "2016-02-01")
+
+        wind_ins.get_momentum("2016-1-1", "2016-10-10", 5, 5)
         break
     except:
         traceback.print_exc()

@@ -2,7 +2,7 @@
 import datetime as dt
 import numpy as np
 from math import *
-
+import pandas as pd
 
 def is_season_report(trade_date):
     if trade_date.month == 3 or trade_date.month == 12:
@@ -61,3 +61,17 @@ def get_no_nan(data):
     #     return "NULL"
 
 # print get_no_nan("0.2g1")
+
+
+def get_maker(code):
+    if code[0] == '6':
+        return code+".SH"
+    else:
+        return code+".SZ"
+
+def get_codemaker_df(df):
+    e_lst = []
+    for e in df['code'].values:
+        e_lst.append(get_maker(e))
+    df['code'] = pd.Series(e_lst, index=df.index)
+    return df

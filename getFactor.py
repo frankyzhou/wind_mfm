@@ -6,6 +6,9 @@ import tushare as ts
 import traceback
 from util import *
 import pandas as pd
+import matplotlib.pyplot as plt
+import math
+factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'turn']
 
 class cal_return():
     def __init__(self):
@@ -39,7 +42,6 @@ class cal_return():
         :return:
         '''
         sort = df[indicator].dropna().order()
-        #     print sort
         l = len(sort)
         sort = list(sort.index)
         l1 = sort[0:l / 5 - 1]
@@ -94,9 +96,6 @@ class cal_return():
         :param indicator:
         :return:
         '''
-        # return_1d = 1
-        # return_1w = 1
-        # result_1m = 1
 
         for i in range(min(size, len(trade_days))):
             startDate = dt.datetime.strptime(trade_days[i], "%Y-%m-%d")
@@ -110,7 +109,7 @@ class cal_return():
             df = pd.merge(df_code, df)  # 通过merge剔除新股
             df = self.industry_factor(df)
             df.index = df["code"]
-            df = df.iloc[:, 1:]
+            df = df.iloc[:, 1:]  # 后几列
 
             l1, l2, l3, l4, l5 = self.get_split(df, indicator)  # 按比重切分股票池
             return_1d = self.get_return_by_port(l1, startDate, nextDate_1d) - self.get_return_by_port(l5, startDate, nextDate_1d)
@@ -135,7 +134,12 @@ class cal_return():
             print startDate.strftime("%Y-%m-%d")
 
     def get_price(self, lst, date):
-        df_list = []
+        '''
+        得到列表lst在date时间下的行情序列
+        :param lst:
+        :param date:
+        :return:
+        '''
         lst_str = ""
         for i in lst:
             lst_str = lst_str + "'" + i + "',"
@@ -153,7 +157,6 @@ class cal_return():
         :param factors:
         :return:
         '''
-        # 获取基础数据
         table = "daily"
         if f_type == 's':
             fdate = find_seasonday(fdate)
@@ -162,47 +165,84 @@ class cal_return():
         fdate = fdate.strftime("%Y-%m-%d")
 
         sql = "select * from " + table + "_factors where date = '%s'" % fdate if f_type != 'k' else \
-            "select code, close, turn from daily_k where date = '%s'" % fdate
+            "select code, close, turnover from daily_k where date = '%s'" % fdate
 
         df = pd.read_sql(sql, self.engine)
 
         if f_type == 'd':
             df["pe"] = 1/(df["pe"])  # 将Pe转换为倒数
+            df["pb"] = 1/(df["pb"])
+            df["mktcap"] = np.log(df.mktcap)
+            # df["beta"] = 1/abs(df["beta"])
+            # df["std"] = 1 / (df["std"])
+        if f_type == 's':
+            df['current'] = 1 / df['current']
         return df
 
     def industry_factor(self, df):
+        '''
+        行业中性化，分两种；
+        一种是分行业，一种是全市场
+        :param df:
+        :return:
+        '''
         industry_set = set()
         df_list = []
         for i in df["industry"].values:
             industry_set.add(i)
         for i in industry_set:
             df_i = df[df.industry == i]
-            for c in df_i.columns[3:-4]:
+            for c in df_i.columns[3:]:
                 if c not in factors_not_industry:
-                    df_i[c] = (df_i[c] - df_i[c].mean()) / df_i[c].std()
+                    if df_i[c].std() != 0 and type(df_i[c].std()) == float:
+                        df_i[c] = (df_i[c] - df_i[c].mean()) / df_i[c].std()
+                    else:
+                        df_i[c] = 0
             df_list.append(df_i)
         df_all = pd.concat(df_list)
+        for c in factors_not_industry:
+            try:
+                df_all[c] = (df_all[c] - df_all[c].mean()) / df_all[c].std()
+            except:
+                continue
         return df_all
 
-    def get_volity(self, lst):
-        for code in lst:
-            sql = "select code, close from daily_k where code = '%s'" % "dd"
+    def get_return_series(self, factors):
+        '''
+        绘制因子收益率
+        :param factors:
+        :return:
+        '''
+        lst = []
+        for f in factors:
+            sql_2 = "select * from factor_return where factor ='%s'" % f
+            df_2 = pd.read_sql(sql_2, self.engine)
+            df_2 = df_2.loc[:,['date','return_1d']]
+            df_2.index = df_2["date"]
+            for i in range(1, len(df_2["return_1d"])):
+                df_2["return_1d"][i] = (df_2["return_1d"][i-1] + 1) * (df_2["return_1d"][i] + 1) - 1
+            df_2 = df_2.rename(columns={'return_1d':f + "_" + 'return_1d'})
+            lst.append(df_2)
+        df = pd.concat(lst, axis=1)
+        df.plot(figsize=[15,8])
+        plt.savefig("return_series.png")
 
 
 if __name__ == "__main__":
     cal = cal_return()
 
-    factors_d = ['pb', 'divide', 'mktcap']
-    # factors_d = ['mktcap']
-    factors_k = ['close', 'turn']
-    factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
-                 'cash_debt', 'oppo_profit', 'roe', 'roa', 'eb', 'total_rev_g', 'gross_margin_g', \
-                 'profit_g', 'oppo_profit_g']
+    # factors_d = ['pe', 'pb', 'divide', 'mktcap','beta', 'std']
+    factors_d = ['moment_1m']
+    factors_k = ['turn']
+    # factors_s = ['total_rev', 'gross_margin', 'profit', 'eps', 'current', 'debt_asset',\
+    #              'cash_debt', 'oppo_profit', 'roe', 'roa', 'eb', 'total_rev_g', 'gross_margin_g',\
+    #              'profit_g', 'oppo_profit_g']
+    factors_s = ['total_rev_g', 'gross_margin_g', 'profit_g', 'oppo_profit_g']
 
-    factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'close', 'turn']
+
     factors_positive = ['divide', 'pe']
 
-    startdate = "2017-01-01"
+    startdate = "2017-02-01"
     enddate = "2017-05-01"
     trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
 
@@ -212,13 +252,23 @@ if __name__ == "__main__":
 
     # for fact in factors_k:
     #     print fact
-    #     print cal.get_return_ports(startdate, 50, fact, 'k', 1)
+    #     print cal.get_return_ports(startdate, 160, fact, 'k', 1)
 
     # for fact in factors_s:
     #     print fact
     #     print cal.get_return_ports(startdate, 1, fact, "s", 30)
 
-    for fact in factors_d:
+    # for fact in factors_d:
+    #     print fact
+    #     print cal.get_return_ports_into_db(startdate, 160, fact, "d")
+
+    # for fact in factors_s:
+    #     print fact
+    #     print cal.get_return_ports_into_db(startdate, 160, fact, "s")
+
+    for fact in factors_k:
         print fact
-        print cal.get_return_ports_into_db(startdate, 60, fact, "d")
+        print cal.get_return_ports_into_db(startdate, 160, fact, "k")
+
+    # cal.get_return_series(factors_d)
 
