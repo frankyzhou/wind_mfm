@@ -56,8 +56,8 @@ e = dao()
 # print 1
 
 # df = ts.get_h_data('002337')
-total = 8
-num = 8
+total = 1
+num = 0
 sql_stock = "SELECT distinct(code) FROM stock.daily_k order by code"
 lst = pd.read_sql(sql_stock, e.get_engine())
 len_lst = len(lst['code'])
@@ -70,11 +70,12 @@ for code in lst['code'][num*avg:min((num+1)*avg-1, len_lst-1)]:
     # if code[:-3] in df_code.values:
     #     continue
     time1 = datetime.now()
+    # code = '600005'
     # if code == '000918.SZ':
     #     print 1
     try:
-        df_t = ts.get_k_data(code,start='2015-11-01', end='2016-01-01')
-        df_h = ts.get_hist_data(code,start='2015-11-01', end='2016-01-01')
+        df_t = ts.get_k_data(code,start='2015-11-01', end='2017-05-26')
+        df_h = ts.get_hist_data(code,start='2015-11-01', end='2017-05-26')
         df_h['date'] = df_h.index
         df = pd.merge(df_h[['turnover','date']], df_t, how='outer', on='date') # 全集避免少数据
 

@@ -25,14 +25,15 @@ class wind():
         names = all_stock[2]
         num = 0
         for code in codes:
-            data = w.wss(code, "delist_date, ipo_date, industry_sw, sec_name", "industryType=1;industryStandard=1;tradeDate="+startdate).Data
-            name = data[3][0]
-            industry = data[2][0]
-            ipo = data[1][0]
-            end = data[0][0]
             sql = "select code from %s where code='%s'" % ("stock_info", code)
             result = self.engine.execute(sql)
             if result.rowcount == 0:
+                data = w.wss(code, "delist_date, ipo_date, industry2, sec_name",
+                             "industryType=1;industryStandard=1;tradeDate=" + startdate).Data
+                name = data[3][0]
+                industry = data[2][0]
+                ipo = data[1][0]
+                end = data[0][0]
                 if ipo < end:  # 退市
                     sql_insert = "insert into stock_info (code, name,startdate, enddate, industry) \
                             values ('%s', '%s', '%s', '%s', '%s')" % (code, name, ipo, end, industry)
@@ -131,6 +132,7 @@ class wind():
             stocks = pd.read_sql(sql_stock, self.engine)
             i = 0
             for code in stocks["code"]:
+                # code = '600005.SH'
                 try:
                     sql_exist = "select * from daily_factors where code='%s' and date='%s'" % (code, date_str)
                     # result = self.engine.execute(sql_exist)
@@ -166,6 +168,7 @@ class wind():
                     except:
                         traceback.print_exc()
                         self.engine = self.dao.get_engine()  # 重新连接
+                # break
 
     def get_quarter_factor(self, startdate, enddate):
         """
@@ -300,13 +303,13 @@ class wind():
 while 1:
     try:
         wind_ins = wind()
-        # wind_ins.get_SectorConstituent("2017-04-19")
+        # wind_ins.get_SectorConstituent("2017-05-26")
         # wind_ins.get_daily_k("2016-01-01", total=2, num=0)
-        # wind_ins.get_daily_factor("2017-01-01", "2017-02-01")
+        wind_ins.get_daily_factor("2015-11-01", "2017-02-01")
         # wind_ins.get_quarter_factor("2015-06-01", "2016-02-01")
         # wind_ins.cal_quarter_growth("2015-06-01", "2016-02-01")
 
-        wind_ins.get_momentum("2016-1-1", "2016-10-10", 5, 5)
+        # wind_ins.get_momentum("2015-11-25", "2016-2-1", 5, 5)
         break
     except:
         traceback.print_exc()
