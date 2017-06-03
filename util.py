@@ -21,8 +21,8 @@ def find_tradeday(trade_day, trade_days, offsize=0):
     :param offsize:
     :return:
     '''
-    # trade_time = dt.datetime.strptime(trade_day, "%Y-%m-%d") + dt.timedelta(days=offsize)
-    trade_time = trade_day + dt.timedelta(days=offsize)
+    trade_time = dt.datetime.strptime(trade_day, "%Y-%m-%d") + dt.timedelta(days=offsize)
+    # trade_time = trade_day + dt.timedelta(days=offsize)
     for date_str in trade_days:
         date_time = dt.datetime.strptime(date_str, "%Y-%m-%d")
         if date_time >= trade_time:
@@ -33,16 +33,17 @@ def find_tradeday(trade_day, trade_days, offsize=0):
     return trade_days[-1]
 
 
-def find_seasonday(day_date):
+def find_seasonday(date_str):
     '''
     获得最近一个报告期时间
     :param self:
     :param day:
     :return:
     '''
-    while not is_season_report(day_date):
-        day_date = day_date - dt.timedelta(days=1)
-    return day_date
+    date = dt.datetime.strptime(date_str, '%Y-%m-%d')
+    while not is_season_report(date):
+        date = date - dt.timedelta(days=1)
+    return date
 
 
 def get_no_nan(data):
@@ -64,6 +65,7 @@ def get_no_nan(data):
 
 
 def get_maker(code):
+    code = unicode('{:0>6}'.format(code))
     if code[0] == '6':
         return code+".SH"
     else:

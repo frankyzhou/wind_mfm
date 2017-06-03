@@ -7,7 +7,7 @@ import traceback
 from util import *
 import pandas as pd
 import matplotlib.pyplot as plt
-import math
+
 factors_not_industry = ['mktcap', 'divide', 'current', 'debt_asset', 'turn']
 
 class cal_return():
@@ -157,12 +157,13 @@ class cal_return():
         :param factors:
         :return:
         '''
+        # fdate = dt.datetime.strptime(fdate, "%Y-%m-%d")
         table = "daily"
         if f_type == 's':
             fdate = find_seasonday(fdate)
             table = "season"
 
-        fdate = fdate.strftime("%Y-%m-%d")
+        # fdate = fdate.strftime("%Y-%m-%d")
 
         sql = "select * from " + table + "_factors where date = '%s'" % fdate if f_type != 'k' else \
             "select code, close, turnover from daily_k where date = '%s'" % fdate
