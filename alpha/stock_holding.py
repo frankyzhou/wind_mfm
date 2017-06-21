@@ -1,13 +1,9 @@
 # coding=utf-8
 import xlrd
-from init import *
-import pandas as pd
-import matplotlib.pyplot as plt
-from WindPy import *
-from getFactor import *
-import os
-from sklearn import linear_model
 from numpy import *
+from sklearn import linear_model
+
+from alpha.getFactor import *
 
 reg=linear_model.LinearRegression()
 
@@ -92,28 +88,29 @@ def get_stock_holding_pandas(name):
     df_raw.columns = ['code', 'percent']
     df = get_codemaker_df(df_raw)
     df.index = df['code']
-    return df_raw
+
+    return df[df.code!='511990.SZ']
 
 
 def get_cap_percent(df, stock_df):
     cap_pct = [0] * 3
-    # try:
-    if len(stock_df) > 0:
-        for code in stock_df['code'].values:
-            cap = df[df.code == code]["mktcap"].values[0] / 100000000
-            if cap < 100:
-                cap_pct[0] += stock_df["percent"][code]
-            elif cap < 500 and cap > 100:
-                cap_pct[1] += stock_df["percent"][code]
-            else:
-                cap_pct[2] += stock_df["percent"][code]
-        sum_percent = sum(cap_pct)
-        if sum_percent > 0:
-            for i in range(len(cap_pct)):
-                cap_pct[i] = cap_pct[i] / sum_percent
-    # except:
-    #     traceback.print_exc()
-        # print 1
+    try:
+        if len(stock_df) > 0:
+            for code in stock_df['code'].values:
+                cap = df[df.code == code]["mktcap"].values[0] / 100000000
+                if cap < 100:
+                    cap_pct[0] += stock_df["percent"][code]
+                elif cap < 500 and cap > 100:
+                    cap_pct[1] += stock_df["percent"][code]
+                else:
+                    cap_pct[2] += stock_df["percent"][code]
+            sum_percent = sum(cap_pct)
+            if sum_percent > 0:
+                for i in range(len(cap_pct)):
+                    cap_pct[i] = cap_pct[i] / sum_percent
+    except:
+        traceback.print_exc()
+        print 1
     return cap_pct
 
 
@@ -149,8 +146,8 @@ def find_index_rank(index, code):
 def get_factor_return_in_time(startdate, enddate):
     trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
     for date_str in trade_days:
-        if os.path.exists(dir_name +'/data/return/fact_return_'+date_str+'.csv'):
-            continue
+        # if os.path.exists(dir_name +'/data/return/fact_return_'+date_str+'.csv'):
+        #     continue
         print date_str
         fact_return = s_h.get_factor_return(date_str)
         fact_return.to_csv(dir_name +'/data/return/fact_return_'+date_str+'.csv',encoding='utf-8')
@@ -187,9 +184,17 @@ def cal_df_dif(filePath, outPath):
     df_lst = []
     # index = []
     for i in os.listdir(filePath):
-        df = pd.read_csv(filePath + "/" + i,  index_col=0).T # index_col=0获得index
-        df[i.split('_')[2][:-4]] = df.iloc[:, 0] - df.iloc[:, 1]
-        df_lst.append(df.iloc[:,2:3])
+        # if 'fact' in i:
+        if i[-1] == 'x':
+            continue
+        try:
+            df = pd.read_csv(filePath + "/" + i,  index_col=0).T # index_col=0获得index
+            # else:
+            #     df = pd.read_csv(filePath + "/" + i,  index_col=0)
+            df[i.split('_')[2][:-4]] = df['p'] - df['b']
+            df_lst.append(df.iloc[:,2:3])
+        except:
+            print 1
     df_all = pd.concat(df_lst, axis=1).T
     df_all.to_csv(outPath, encoding='gbk')
 
@@ -241,6 +246,55 @@ def get_track_error(stock_df, bench_df, date_str, filePathIn):
         df_all = bench_df
     return get_stock_risk(date_str, df_all, filePathIn)
 
+
+def get_fact_risk(date_str, fact_dif_path, fact_cov_path, file_out):
+    fact_df = pd.read_csv(fact_dif_path +  date_str + '.csv', index_col=0)
+    p = fact_df.ix['p']
+    dif = fact_df.ix['p'] - fact_df.ix['b']
+    fact_cov = pd.read_csv(fact_cov_path +  date_str + '.csv', index_col=0)
+
+    dot_p = np.dot(fact_cov.values, p.values)
+    dot_p_all = np.dot(dot_p, p.values)
+    dot_p = dot_p / dot_p_all if dot_p_all != 0 else dot_p
+    df_p = pd.DataFrame(dot_p, index=fact_df.columns, columns=['mctr'])
+
+    dot_dif = np.dot(fact_cov.values, dif.values)
+    dot_dif_all = np.dot(dot_dif, dif.values)
+    dot_dif = dot_dif / dot_dif_all if dot_dif_all != 0 else dot_dif
+    df_dif = pd.DataFrame(dot_dif, index=fact_df.columns, columns=['mcar'])
+
+    df_all = pd.concat([df_p, df_dif], join='outer', axis=1)
+    df_all.to_excel(file_out + date_str + ".xlsx")
+    # print 1
+
+
+def get_fact_alpha(return_path, factor_path, filePathOut):
+    file_lst = os.listdir(return_path)
+    df_lst = []
+    name_lst = []
+    for name in file_lst:
+        df_return = pd.read_csv(return_path + '/' + name, index_col=0)
+        df_lst.append(df_return)
+        name_lst.append(name.split('_')[2][:-4])
+    df_return_all = pd.concat(df_lst)
+    df_return_all.index = name_lst
+    df_factor = pd.read_csv(factor_path, index_col=0)
+    df_return_all = df_return_all.ix[df_factor.index]
+    df_fact_alpha = df_return_all * df_factor
+    df_fact_alpha.to_excel(filePathOut)
+
+
+def get_excess_stock(stock_df, bench_df):
+    df_all = pd.DataFrame()
+    if len(stock_df) > 0:
+        df_all = pd.concat([stock_df, bench_df], join='outer', axis=1).fillna(0)
+        df_all = df_all.ix[stock_df.index]
+        df_all.ix[:,1] = df_all.ix[:,1] - df_all.ix[:,3]
+        df_all['code'] = df_all.index
+        df_all = df_all.ix[:,:2]
+    return df_all
+
+
 class stock_holding():
     def __init__(self):
         self.db = dao()
@@ -261,15 +315,16 @@ class stock_holding():
         sql = "select code, mktcap from daily_factors where date='%s'" % date_str
         df = pd.read_sql(sql, self.engine)
 
-        df_dict["HS300"] = get_cap_percent(df, bench_stocklst)
-        df_dict["Portfolio"] = get_cap_percent(df, stock_lst)
+        df_dict["p"] = get_cap_percent(df, stock_lst)
+        df_dict["b"] = get_cap_percent(df, bench_stocklst)
+
 
         df_cap = pd.DataFrame(df_dict)
         df_cap.index = ["小盘股", "中盘股", "大盘股"]
         # plt.figure()
         # df_cap.plot.bar()
         # plt.savefig("cap_pct.png")
-        return df_cap
+        return df_cap.T
 
     def get_inds_percent(self, stock_lst, bench_stocklst):
         '''
@@ -283,12 +338,13 @@ class stock_holding():
         sql = "select code, industry from stock_info"
         df = pd.read_sql(sql, self.engine)
 
-        df_dict["HS300"], indu_lst = get_indu_percent(df, bench_stocklst)
-        df_dict["Portfolio"], indu_lst = get_indu_percent(df, stock_lst)
+        df_dict["p"], indu_lst = get_indu_percent(df, stock_lst)
+        df_dict["b"], indu_lst = get_indu_percent(df, bench_stocklst)
+
         df = pd.DataFrame(df_dict, index=indu_lst)
         # df.plot.bar(figsize=[15,8])
         # plt.savefig("indu_pct.png")
-        return df
+        return df.T
 
     def get_factor_load(self, date_str):
         stock_df = self.cal.get_stock(date_str, "d").drop_duplicates()
@@ -309,11 +365,25 @@ class stock_holding():
         df = df.fillna(0)
         del df['date_y']
         del df['date_x']
-        del df['industry_y']
+        # del df['industry_y']
         df['debt'] = (df['current'] + df['debt_asset']) / 2
         df['value'] = (df['pe'] + df['pb'] + df['divide']) / 3
         df['growth'] = (df['total_rev_g'] + df['gross_margin_g'] + df['oppo_profit_g'] + df['profit_g']) / 4
-        return  df[['code', 'industry_x', 'value', 'debt', 'moment_1m', 'turnover', 'mktcap', 'std', 'beta', 'growth']]
+
+        industry_set = list(df['industry_x'].drop_duplicates().values)
+        df_lst = []
+        for i in industry_set:
+            if i == 'None' or i == 0:
+                industry_set.remove(i)
+                continue
+            df_tmp = df[df.industry_x==i]
+            df_tmp[i] = 1
+            del df_tmp['industry_x']
+            df_lst.append(df_tmp)
+        df_all = pd.concat(df_lst).fillna(0)
+        columns = ['code', 'value', 'debt', 'moment_1m', 'turnover', 'mktcap', 'std', 'beta', 'growth']
+        columns.extend(industry_set)
+        return df_all[columns]
 
     def get_factor_percent(self, stock_df, date_str):
         # df_new = df[['industry_x', 'value', 'debt', 'moment_1m', 'turnover', 'mktcap', 'std', 'beta', 'growth']]
@@ -328,8 +398,20 @@ class stock_holding():
     def merge_industry(self, stock_df):
         sql_getindustry = "select code, industry from stock_info"
         df_code = pd.read_sql(sql_getindustry, self.engine)
-        df = pd.merge(df_code, stock_df)  # 通过merge剔除新股
-        return self.cal.industry_factor(df)
+        df_all = pd.merge(df_code, stock_df, on='code')  # 通过merge剔除新股
+        df_all = self.cal.industry_factor(df_all)  # 行业中性化
+
+        # industry_set = df_code['industry'].drop_duplicates().values
+        # df_lst = []
+        # for i in industry_set:
+        #     if i == 'None':
+        #         continue
+        #     df_tmp = df_all[df_all.industry==i]
+        #     df_tmp[i] = 1
+        #     del df_tmp['industry']
+        #     df_lst.append(df_tmp)
+        # df_all = pd.concat(df_lst).fillna(0)
+        return df_all
 
     def get_stock_return(self, date_str):
         sql_k = "select code, close from daily_k where date = '%s' order by code" % (date_str)
@@ -348,10 +430,12 @@ class stock_holding():
         stock_return = self.get_stock_return(date_str)
         factor_load = self.get_factor_load(date_str)
         df_all = pd.merge(stock_return, factor_load, how='inner', on='code')
-        r_np = df_all['return'].values
-        f_np = df_all[factors_barra].values
+        r_np = df_all.ix[:,1].values  # return
+        f_np = df_all.ix[:,2:].values
         reg.fit(f_np, r_np)
-        factor_return = pd.DataFrame(reg.coef_, index=factors_barra)
+        factor_return = pd.DataFrame(reg.coef_, index=df_all.columns[2:])
+        mean = factor_return.mean()
+        std = factor_return.std()
         return factor_return.T
 
     def get_stock_cov(self, date_str, size):
@@ -386,40 +470,45 @@ file_lst = os.listdir(dir_name)
 s_h = stock_holding()
 track_lst = []
 name_lst = []
-for name in file_lst:
-    if len(name) < 5:
-        continue
-    date = name.split('.')[0]
-    print date
+# for name in file_lst:
+#     if len(name) < 5:
+#         continue
+#     date = name.split('.')[0]
+#     print date
 
     # stock_df = get_stock_holding(dir_name + "/" + date)
-    stock_df = get_stock_holding_pandas(dir_name + "/" + date)
-    bench_stock_df = get_index_stocks('000300.SH', date)
+    # stock_df = get_stock_holding_pandas(dir_name + "/" + date)
+    # bench_stock_df = get_index_stocks('000300.SH', date)
+    # stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
 
-    cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
-    indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
-
-    fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
-    fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
-    fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
-    fact_df.index = ['p','b']
-
-    cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
-    indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
-    fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
+    # cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
+    # indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
+    #
+    # fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
+    # fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
+    # fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
+    # fact_df.index = ['p','b']
+    #
+    # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
+    # indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
+    # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
 
     # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
+    # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
     # track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
     # name_lst.append(date)
-# get_factor_return_in_time('2016-07-01', '2016-08-01')
-# s_h.get_stock_cov('2016-03-01', 10)
-# get_stock_cov_in_time('2016-07-01', '2016-08-01')
-# get_factor_cov_in_time('2016-01-01', '2016-07-01')
+    # get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
+
+get_factor_return_in_time('2016-11-01', '2017-03-01')
+
+# get_stock_cov_in_time('2016-11-22', '2017-03-01')
+# get_factor_cov_in_time('2016-11-01', '2017-03-01')
 # cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
-
+#
 # cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
-
 # cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
 # track_df = pd.DataFrame(track_lst, index=name_lst)
 # track_df.to_excel(dir_name +'/data/track_error.xlsx')
+
+get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
 print 1
