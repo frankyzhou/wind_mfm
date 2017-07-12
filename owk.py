@@ -87,5 +87,5 @@ df_sum = df_sum / len(columns_names)
 lst_result = []
 lst_result.append(df_sum.index.values)
 lst_result.append(df_sum["w"].values)
-print 1
+pass
 

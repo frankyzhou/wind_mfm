@@ -7,7 +7,7 @@ from WindPy import *
 
 # df1 = ts.get_report_data(2015, 1)
 # df2 = ts.get_report_data(2015, 2)
-# print 1
+# pass
 e = dao()
 # sql = "select code, date, close from daily_k where code='000001.SZ' and date = '2017-04-06'"
 # df = pd.read_sql(sql, e.get_engine())
@@ -31,7 +31,7 @@ e = dao()
 
 # df = pd.DataFrame([{"i":np.nan}])
 # df.to_sql("test", e.get_engine(), if_exists='append')
-# print 1
+# pass
 #
 # sql = "select * from daily_factors where date = '2017-2-7'"
 # df_2 = pd.read_sql(sql, e.get_engine())
@@ -40,7 +40,7 @@ e = dao()
 #
 # lst.to_csv("divide.csv")
 # print lst
-# print 1
+# pass
 
 # w.start()
 # all_stock = w.wset("indexconstituent","date=2017-04-28;windcode=000905.SH").Data# 取全部A股股票代码、名称信息
@@ -53,7 +53,7 @@ e = dao()
 #         cyb_p += float(all_stock[3][i])
 #         num += 1
 # print num, cyb_p
-# print 1
+# pass
 
 # df = ts.get_h_data('002337')
 # total = 1
@@ -72,7 +72,7 @@ e = dao()
 #     time1 = datetime.now()
 #     # code = '600005'
 #     # if code == '000918.SZ':
-#     #     print 1
+#     #     pass
 #     try:
 #         df_t = ts.get_k_data(code,start='2015-11-01', end='2017-05-26')
 #         df_h = ts.get_hist_data(code,start='2015-11-01', end='2017-05-26')
@@ -81,9 +81,16 @@ e = dao()
 #
 #         df.to_sql("daily_k", e.get_engine(), if_exists='append')
 #         # if len(df) > 0:
-#         #     print 1
+#         #     pass
 #         time2 = datetime.now()
 #         print code, time2-time1
 #     except:
 #         print code, 'error'
 
+df_all = []
+for i in os.listdir('lianghua3/data/return'):
+    df_all.append(pd.read_csv('lianghua3/data/return/' + i , index_col=0))
+df = pd.concat(df_all)
+print df.sum()
+df.to_excel('name', )
+pass

@@ -1,6 +1,5 @@
 #coding:utf-8
 
-import platform, os
 from sqlalchemy import create_engine
 
 host_mysql = '218.25.140.183'

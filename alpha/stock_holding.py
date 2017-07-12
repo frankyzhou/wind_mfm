@@ -110,7 +110,7 @@ def get_cap_percent(df, stock_df):
                     cap_pct[i] = cap_pct[i] / sum_percent
     except:
         traceback.print_exc()
-        print 1
+        pass
     return cap_pct
 
 
@@ -194,7 +194,7 @@ def cal_df_dif(filePath, outPath):
             df[i.split('_')[2][:-4]] = df['p'] - df['b']
             df_lst.append(df.iloc[:,2:3])
         except:
-            print 1
+            pass
     df_all = pd.concat(df_lst, axis=1).T
     df_all.to_csv(outPath, encoding='gbk')
 
@@ -265,7 +265,7 @@ def get_fact_risk(date_str, fact_dif_path, fact_cov_path, file_out):
 
     df_all = pd.concat([df_p, df_dif], join='outer', axis=1)
     df_all.to_excel(file_out + date_str + ".xlsx")
-    # print 1
+    # pass
 
 
 def get_fact_alpha(return_path, factor_path, filePathOut):
@@ -382,7 +382,10 @@ class stock_holding():
             df_lst.append(df_tmp)
         df_all = pd.concat(df_lst).fillna(0)
         columns = ['code', 'value', 'debt', 'moment_1m', 'turnover', 'mktcap', 'std', 'beta', 'growth']
-        columns.extend(industry_set)
+        # columns.extend(industry_set)
+        # for c in columns:
+        #     if c not in df_all.columns:
+        #         print c
         return df_all[columns]
 
     def get_factor_percent(self, stock_df, date_str):
@@ -465,50 +468,50 @@ class stock_holding():
 # plt.rcParams['axes.unicode_minus']=False #用来正常显示负号
 
 # dir_name = 'lianghua3'
-dir_name = 'longwu'
-file_lst = os.listdir(dir_name)
-s_h = stock_holding()
-track_lst = []
-name_lst = []
+# # dir_name = 'longwu'
+# file_lst = os.listdir(dir_name)
+# s_h = stock_holding()
+# # track_lst = []
+# # name_lst = []
 # for name in file_lst:
 #     if len(name) < 5:
 #         continue
 #     date = name.split('.')[0]
 #     print date
-
-    # stock_df = get_stock_holding(dir_name + "/" + date)
-    # stock_df = get_stock_holding_pandas(dir_name + "/" + date)
-    # bench_stock_df = get_index_stocks('000300.SH', date)
-    # stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
-
-    # cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
-    # indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
-    #
-    # fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
-    # fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
-    # fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
-    # fact_df.index = ['p','b']
-    #
-    # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
-    # indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
-    # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
-
-    # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
-    # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
-    # track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
-    # name_lst.append(date)
-    # get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
-
-get_factor_return_in_time('2016-11-01', '2017-03-01')
-
-# get_stock_cov_in_time('2016-11-22', '2017-03-01')
-# get_factor_cov_in_time('2016-11-01', '2017-03-01')
-# cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
 #
-# cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
-# cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
-# track_df = pd.DataFrame(track_lst, index=name_lst)
-# track_df.to_excel(dir_name +'/data/track_error.xlsx')
-
-get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
-print 1
+#     # stock_df = get_stock_holding(dir_name + "/" + date)
+#     # stock_df = get_stock_holding_pandas(dir_name + "/" + date)
+#     bench_stock_df = get_index_stocks('000300.SH', date)
+#     # stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
+#
+#     # cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
+#     # indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
+#     #
+#     # fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
+#     # fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
+#     # fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
+#     # fact_df.index = ['p','b']
+#     #
+#     # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
+#     # indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
+#     # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
+#
+#     # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
+#     # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
+#     # track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
+#     # name_lst.append(date)
+#     # get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
+#
+# get_factor_return_in_time('2017-05-01', '2017-06-01')
+#
+# # get_stock_cov_in_time('2016-11-22', '2017-03-01')
+# # get_factor_cov_in_time('2016-11-01', '2017-03-01')
+# # cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
+# #
+# # cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
+# # cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
+# # track_df = pd.DataFrame(track_lst, index=name_lst)
+# # track_df.to_excel(dir_name +'/data/track_error.xlsx')
+#
+# # get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
+# pass

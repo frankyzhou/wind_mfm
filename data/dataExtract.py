@@ -5,10 +5,10 @@ import tushare as ts
 import traceback
 from util import *
 import pandas as pd
+from alpha.stock_holding import get_index_stocks
 
 
 class wind():
-
     def __init__(self):
         w.start()
         self.dao = dao()
@@ -74,29 +74,13 @@ class wind():
                 print i
 
     def insert_k_data(self, code, startdate, enddate):
-        # data = w.wsd(code, "open,high,low,close,volume,turn", startdate, enddate, "PriceAdj=F")
-        # for i in range(len(data.Times)):
-        #     date_str = data.Times[i].strftime("%Y-%m-%d")
-        #     try:
-        #         sql_exist = "select code from daily_k where code='%s' and date='%s'" % (code, date_str)
-        #         result = self.engine.execute(sql_exist)
-        #     except:
-        #         result = ""
-        #         traceback.print_exc()
-        #         self.engine = self.dao.get_engine()
-        #
-        #     if result == "" or result.rowcount == 0:
-        #         try:
-        #             sql_insert = "insert into daily_k (code, date, open, close, high, low, volume, turn) values ('%s', '%s', %s, %s, %s, %s, %s, %s) " \
-        #                          % (code, date_str, get_no_nan(data.Data[0][i]), get_no_nan(data.Data[1][i]),get_no_nan(data.Data[2][i]),\
-        #                             get_no_nan(data.Data[3][i]), get_no_nan(data.Data[4][i]), get_no_nan(data.Data[5][i]))
-        #             self.engine.execute(sql_insert)
-        #         except:
-        #             self.engine = self.dao.get_engine()
-        #             traceback.print_exc()
-        #     # else:
-        #     #     break  # 已经存在，跳出
-
+        '''
+        通过tushare的数据，将历史的k线数据批量导入数据库
+        :param code: 
+        :param startdate: 
+        :param enddate: 
+        :return: 
+        '''
         data = ts.get_h_data(code[:-3], start=startdate, end=enddate)
         for i in range(len(data)):
             print '-'*10 + str(i)
@@ -299,17 +283,37 @@ class wind():
                         self.engine.execute(sql)
                         # self.engine = self.dao.get_engine()  # 重新连接
 
+    def update_index_percent(self, index, startdate, enddate):
+        trade_days = ts.get_k_data("000001", startdate, enddate)["date"].values
+        df_old = []
+        for tmp in trade_days:
+            # print tmp
+            df = get_index_stocks(index, tmp)
+            df['index_code'] = index
+            df['date'] = tmp
+            df.index = range(len(df))
+            if len(df_old) == 0:
+                df.to_sql("index_stock", self.engine, if_exists='append')
+                df_old = df.copy()
+                print tmp
+            else:
+                if not (df_old[['code', 'percent']].values == df[['code', 'percent']].values).all():
+                    df_old = df.copy()
+                    df.to_sql("index_stock", self.engine, if_exists='append')
+                    print tmp
+
 
 while 1:
     try:
         wind_ins = wind()
-        # wind_ins.get_SectorConstituent("2017-05-26")
+        # wind_ins.get_SectorConstituent("2017-07-10")
         # wind_ins.get_daily_k("2016-01-01", total=2, num=0)
-        wind_ins.get_daily_factor("2017-05-11", "2017-06-11")
+        wind_ins.get_daily_factor("2017-07-01", "2017-07-11")
         # wind_ins.get_quarter_factor("2015-06-01", "2016-02-01")
         # wind_ins.cal_quarter_growth("2015-06-01", "2016-02-01")
 
         # wind_ins.get_momentum("2015-11-25", "2016-2-1", 5, 5)
+        # wind_ins.update_index_percent('000300.SH', '2015-01-01', '2017-07-07')
         break
     except:
         traceback.print_exc()
