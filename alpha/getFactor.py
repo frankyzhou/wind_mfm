@@ -75,6 +75,8 @@ class cal_return():
             sql_getindustry = "select code, industry from stock_info where startdate < '%s'" % (startDate - dt.timedelta(days=250)).strftime("%Y-%m-%d")
             df_code = pd.read_sql(sql_getindustry, self.engine)
             df = pd.merge(df_code, df)  #通过merge剔除新股
+            if len(df) == 0:
+                pass
             df = self.industry_factor(df)
             df.index = df["code"]
             df = df.iloc[:, 1:]
@@ -200,6 +202,8 @@ class cal_return():
                     else:
                         df_i[c] = 0
             df_list.append(df_i)
+        if len(df_list) == 0:
+            pass
         df_all = pd.concat(df_list)
         for c in factors_not_industry:
             try:

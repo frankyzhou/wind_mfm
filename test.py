@@ -4,7 +4,7 @@ import pandas as pd
 from init import *
 import numpy as np
 from WindPy import *
-
+import traceback
 # df1 = ts.get_report_data(2015, 1)
 # df2 = ts.get_report_data(2015, 2)
 # pass
@@ -55,42 +55,42 @@ e = dao()
 # print num, cyb_p
 # pass
 
-# df = ts.get_h_data('002337')
-# total = 1
-# num = 0
-# sql_stock = "SELECT distinct(code) FROM stock.daily_k order by code"
-# lst = pd.read_sql(sql_stock, e.get_engine())
-# len_lst = len(lst['code'])
-# avg = len_lst / total
-# print total, num
-# sql_exist = "select distinct(code) from stock.daily_k where date='2016-11-01'"
-# df_code = pd.read_sql(sql_exist, e.get_engine())
-#
-# for code in lst['code'][num*avg:min((num+1)*avg-1, len_lst-1)]:
-#     # if code[:-3] in df_code.values:
-#     #     continue
-#     time1 = datetime.now()
-#     # code = '600005'
-#     # if code == '000918.SZ':
-#     #     pass
-#     try:
-#         df_t = ts.get_k_data(code,start='2015-11-01', end='2017-05-26')
-#         df_h = ts.get_hist_data(code,start='2015-11-01', end='2017-05-26')
-#         df_h['date'] = df_h.index
-#         df = pd.merge(df_h[['turnover','date']], df_t, how='outer', on='date') # 全集避免少数据
-#
-#         df.to_sql("daily_k", e.get_engine(), if_exists='append')
-#         # if len(df) > 0:
-#         #     pass
-#         time2 = datetime.now()
-#         print code, time2-time1
-#     except:
-#         print code, 'error'
+total = 2
+num = 0
+sql_stock = "SELECT distinct(code) FROM stock.daily_k order by code"
+lst = pd.read_sql(sql_stock, e.get_engine())
+len_lst = len(lst['code'])
+avg = len_lst / total
+print total, num
+sql_exist = "select distinct(code) from stock.daily_k where date='2016-11-01'"
+df_code = pd.read_sql(sql_exist, e.get_engine())
 
-df_all = []
-for i in os.listdir('lianghua3/data/return'):
-    df_all.append(pd.read_csv('lianghua3/data/return/' + i , index_col=0))
-df = pd.concat(df_all)
-print df.sum()
-df.to_excel('name', )
-pass
+for code in lst['code'][num*avg:min((num+1)*avg-1, len_lst-1)]:
+    # if code[:-3] in df_code.values:
+    #     continue
+    time1 = datetime.now()
+    # code = '600005'
+    # if code == '000918.SZ':
+    #     pass
+    try:
+        df_t = ts.get_k_data(code,start='2014-11-01', end='2015-12-31')
+        df_h = ts.get_hist_data(code,start='2014-11-01', end='2015-12-31')
+        df_h['date'] = df_h.index
+        df = pd.merge(df_h[['turnover','date']], df_t, how='outer', on='date') # 全集避免少数据
+        df = df.dropna()
+        df.to_sql("daily_k", e.get_engine(), if_exists='append')
+        # if len(df) > 0:
+        #     pass
+        time2 = datetime.now()
+        print code, time2-time1
+    except:
+        traceback.print_exc()
+        print code, 'error'
+
+# df_all = []
+# for i in os.listdir('lianghua3/data/return'):
+#     df_all.append(pd.read_csv('lianghua3/data/return/' + i , index_col=0))
+# df = pd.concat(df_all)
+# print df.sum()
+# df.to_excel('name', )
+# pass

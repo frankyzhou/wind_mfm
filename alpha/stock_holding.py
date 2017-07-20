@@ -2,7 +2,7 @@
 import xlrd
 from numpy import *
 from sklearn import linear_model
-
+import os
 from alpha.getFactor import *
 
 reg=linear_model.LinearRegression()
@@ -94,9 +94,10 @@ def get_stock_holding_pandas(name):
 
 def get_cap_percent(df, stock_df):
     cap_pct = [0] * 3
-    try:
-        if len(stock_df) > 0:
-            for code in stock_df['code'].values:
+    # try:
+    if len(stock_df) > 0:
+        for code in stock_df['code'].values:
+            try:
                 cap = df[df.code == code]["mktcap"].values[0] / 100000000
                 if cap < 100:
                     cap_pct[0] += stock_df["percent"][code]
@@ -104,13 +105,16 @@ def get_cap_percent(df, stock_df):
                     cap_pct[1] += stock_df["percent"][code]
                 else:
                     cap_pct[2] += stock_df["percent"][code]
-            sum_percent = sum(cap_pct)
-            if sum_percent > 0:
-                for i in range(len(cap_pct)):
-                    cap_pct[i] = cap_pct[i] / sum_percent
-    except:
-        traceback.print_exc()
-        pass
+            except:
+                traceback.print_exc()
+                pass
+        sum_percent = sum(cap_pct)
+        if sum_percent > 0:
+            for i in range(len(cap_pct)):
+                cap_pct[i] = cap_pct[i] / sum_percent
+    # except:
+    #     traceback.print_exc()
+    #     pass
     return cap_pct
 
 
@@ -125,10 +129,12 @@ def get_indu_percent(df, stock_df):
     industry_pct = [0] * len(industry_lst)
     if len(stock_df) > 0:
         for code in stock_df['code'].values:
-            industry = df[df.code == code]["industry"].values[0]
-            i = industry_lst.index(industry)
-            industry_pct[i] += stock_df["percent"][code]
-
+            try:
+                industry = df[df.code == code]["industry"].values[0]
+                i = industry_lst.index(industry)
+                industry_pct[i] += stock_df["percent"][code]
+            except:
+                pass
     sum_lst = sum(industry_pct)
     if sum_lst > 0:
         for i in range(len(industry_pct)):
@@ -204,22 +210,58 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
     if len(stock_df) == 0:
         return 0
     for c in stock_df['code'].values:
-        code_lst.append(long(c[:6]))
-    # stock_df['code'] = pd.Series(code_lst, index=stock_df.index)
+        try:
+            code_lst.append(int(c[:6]))
+        except:
+            code_lst.append(int(c))
+    stock_df['code'] = pd.Series(code_lst, index=stock_df.index)
     stock_df.index = code_lst
     df_cov = pd.read_csv(filePathIn + date_str + '.csv', index_col=0)
     df_cov.columns = df_cov.index
-    # df_cov = stock_df['percent']
-    df_1 = pd.concat([df_cov, stock_df], axis=1)
+    # df_cov['code'] = df_cov.index.values
+    try:
+        df_1 = pd.concat([df_cov, stock_df], axis=1)
+        # df_1 = df_cov.join(stock_df)
+    except:
+        # for i in stock_df.index.values:
+        #     if i not in df_cov.index.values:
+        #         print i
+        # df_1 = pd.concat([df_cov, stock_df.T], axis=1)
+        df_cov['code'] = df_cov.index.values
+        tmp = pd.merge(df_cov, stock_df, how='outer', on='code')
+        columns = tmp.columns.values[:-2]
+        tmp.index = range(len(tmp))
+        # index_set = set(tmp['code'].values)
+        index_delete = []
+        for i in range(1, len(tmp)):
+            if i == 73:
+                pass
+            if tmp['code'][i] in list(tmp['code'].values[:i]) or \
+                tmp['code'][i] not in list(df_cov['code']):
+                index_delete.append(i)
+        tmp.drop(tmp.index[index_delete],inplace=True)
+        df_1 = tmp
     df_p = df_1['percent'].fillna(0)
     del df_1['code']
     del df_1['percent']
-    df_2 = pd.concat([df_1, stock_df.T], axis=0)
-    df_2 = df_2.drop(df_2.index[-2:])
-    df_2 = df_2.fillna(0)
+
+    # df_2 = df_p
+    # try:
+    #     df_2 = pd.concat([df_1, stock_df.T], axis=0)
+    # except:
+    #     index_lst = df_1.index.values
+    #     columns_lst = df_1.columns.values
+    #     index_lst = [long(i) for i in index_lst]
+    #     columns_lst = [long(i) for i in columns_lst]
+    #     for i in index_lst:
+    #         if i not in columns_lst:
+    #             print i
+    #     pass
+    # df_2 = df_2.drop(df_2.index[-2:])
+    # df_2 = df_2.fillna(0)
 
 
-    risk_margin = np.dot(df_2.values, df_p.values)
+    risk_margin = np.dot(df_1.values, df_p.values)
     total_risk = np.dot(risk_margin, df_p.values)
     if not filePathOut:
         return total_risk
@@ -402,6 +444,8 @@ class stock_holding():
         sql_getindustry = "select code, industry from stock_info"
         df_code = pd.read_sql(sql_getindustry, self.engine)
         df_all = pd.merge(df_code, stock_df, on='code')  # 通过merge剔除新股
+        if len(df_all) == 0:
+            pass
         df_all = self.cal.industry_factor(df_all)  # 行业中性化
 
         # industry_set = df_code['industry'].drop_duplicates().values
@@ -468,50 +512,53 @@ class stock_holding():
 # plt.rcParams['axes.unicode_minus']=False #用来正常显示负号
 
 # dir_name = 'lianghua3'
-# # dir_name = 'longwu'
-# file_lst = os.listdir(dir_name)
-# s_h = stock_holding()
-# # track_lst = []
-# # name_lst = []
-# for name in file_lst:
-#     if len(name) < 5:
-#         continue
-#     date = name.split('.')[0]
-#     print date
-#
-#     # stock_df = get_stock_holding(dir_name + "/" + date)
-#     # stock_df = get_stock_holding_pandas(dir_name + "/" + date)
-#     bench_stock_df = get_index_stocks('000300.SH', date)
-#     # stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
-#
-#     # cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
-#     # indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
-#     #
-#     # fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
-#     # fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
-#     # fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
-#     # fact_df.index = ['p','b']
-#     #
-#     # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
-#     # indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
-#     # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
-#
-#     # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
-#     # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
-#     # track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
-#     # name_lst.append(date)
-#     # get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
-#
-# get_factor_return_in_time('2017-05-01', '2017-06-01')
-#
-# # get_stock_cov_in_time('2016-11-22', '2017-03-01')
-# # get_factor_cov_in_time('2016-11-01', '2017-03-01')
-# # cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
+# dir_name = 'longwu'
+dir_name = 'interview'
+file_lst = os.listdir(dir_name)
+s_h = stock_holding()
+track_lst = []
+name_lst = []
+for name in file_lst:
+    if len(name) < 5:
+        continue
+    date = name.split('.')[0]
+    print date
+
+    # stock_df = get_stock_holding(dir_name + "/" + date)
+    stock_df = get_stock_holding_pandas(dir_name + "/" + date)
+    if len(stock_df) ==0:
+        continue
+    bench_stock_df = get_index_stocks('000300.SH', date)
+    stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
+    #
+    # cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
+    # indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
+
+    # fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
+    # fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
+    # fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
+    # fact_df.index = ['p','b']
+
+    # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
+    # indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
+    # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
+
+    # 跑完上面再跑下面
+    # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
+    # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
+    # track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
+    # name_lst.append(date)
+    get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
+
+# get_factor_return_in_time('2015-10-01', '2016-01-01')
 # #
-# # cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
-# # cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
-# # track_df = pd.DataFrame(track_lst, index=name_lst)
-# # track_df.to_excel(dir_name +'/data/track_error.xlsx')
-#
-# # get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
-# pass
+# get_stock_cov_in_time('2015-10-01', '2016-01-01')
+# get_factor_cov_in_time('2015-10-01', '2016-01-01')
+# cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
+# cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
+# cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
+# track_df = pd.DataFrame(track_lst, index=name_lst)
+# track_df.to_excel(dir_name +'/data/track_error.xlsx')
+
+get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
+pass

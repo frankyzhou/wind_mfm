@@ -5,8 +5,19 @@ import tushare as ts
 import traceback
 from util import *
 import pandas as pd
-from alpha.stock_holding import get_index_stocks
+# from alpha.stock_holding import get_index_stocks
 
+def get_index_stocks(index, date):
+    all_stock = w.wset("indexconstituent","date=%s;windcode=%s" %(date, index)).Data
+    stock_lst = []
+    for i in range(len(all_stock[1])):
+        stock = {}
+        stock["code"] = all_stock[1][i]
+        stock["percent"] = all_stock[3][i]/100 if all_stock[3][i] != None else 0
+        stock_lst.append(stock)
+    df = pd.DataFrame(stock_lst)
+    df.index = df['code']
+    return df
 
 class wind():
     def __init__(self):
@@ -308,11 +319,11 @@ while 1:
         wind_ins = wind()
         # wind_ins.get_SectorConstituent("2017-07-10")
         # wind_ins.get_daily_k("2016-01-01", total=2, num=0)
-        wind_ins.get_daily_factor("2017-07-01", "2017-07-11")
-        # wind_ins.get_quarter_factor("2015-06-01", "2016-02-01")
+        wind_ins.get_daily_factor("2015-12-16", "2016-01-01")
+        # wind_ins.get_quarter_factor("2015-06-01", "2015-09-01")
         # wind_ins.cal_quarter_growth("2015-06-01", "2016-02-01")
 
-        # wind_ins.get_momentum("2015-11-25", "2016-2-1", 5, 5)
+        # wind_ins.get_momentum("2015-09-01", "2016-01-01", 5, 0)
         # wind_ins.update_index_percent('000300.SH', '2015-01-01', '2017-07-07')
         break
     except:
