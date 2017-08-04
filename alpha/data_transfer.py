@@ -3,7 +3,7 @@ import pandas as pd
 import datetime as dt
 
 # 将股票交易明细表转换为估值表
-data_2016_11=pd.read_excel('interview\\stock.xlsx')
+data_2016_11=pd.read_excel('interview\\done\\stock.xlsx')
 # data_2016_11=pd.read_excel('chengye\\raw\\stock.xlsx')
 data_2016_11=data_2016_11.dropna()
 # data_2016_12=pd.read_excel('C:\\Users\\taicheng\\Desktop\\2016-12.xls').sort_values(u'业务日期')
@@ -42,13 +42,17 @@ total={}
 # 先算初始日期的占比
 data_init=data[data['date']==date[0]]
 values=data_init['deal_values'].sum()
-ratio_stock=data_init['deal_values']/values
+# ratio_stock=data_init['deal_values']/values
+ratio_stock=data_init['deal_amount']
 stocks_0=data_init['code'].drop_duplicates().values # 第一个交易日交易的股票代码
 for stock in stocks_0:
-    if str(stock)[0] in ['0', '3', '6']:
+    stock_str = '%06d' % stock
+    if stock_str == '002244':
+        pass
+    if stock_str[0] in ['0', '3', '6']:
         df_index=data_init[data_init['code']==stock].index
-        df_ratio=ratio_stock.ix[df_index].sum()   # 个股第一天持仓比
-        end_dataframe.loc[stock,u'2016-11-22']=df_ratio
+        df_ratio=ratio_stock[df_index].sum()   # 个股第一天持仓比
+        end_dataframe.loc[stock, date[0]]=df_ratio
         base_hold.loc[stock,'deal_amount'] = sum(data_init.ix[df_index,'deal_amount'])  # 个股成交数量
         base_hold.loc[stock,'deal_values']=sum(data_init.ix[df_index, 'deal_values'])   # 个股成交金额
         base_hold.loc[stock,'sell_or_buy']=data_init.ix[df_index, 'sell_or_buy'].values[0] # 个股买卖方向
@@ -56,29 +60,36 @@ for stock in stocks_0:
 base_hold=base_hold.fillna(0)
 # 将第一个交易日的数据先赋值,其余交易日数据基于第一天
 total[date[0]]=base_hold
-for i in range(1,len(date)):
+# end_dataframe[date[0]]=base_hold['deal_values']/values
+for i in range(1, len(date)):
+    if date[i] == '2017-02-27':
+        pass
     subdata=data[data['date']==date[i]]   # 每一天交易数据
     for code in subdata['code'].values:
-        if str(code)[0] in ['0', '3', '6']:
-            location=subdata[subdata['code']==code].index # 个股对应位置
-            df_tmp = subdata.ix[location]
+        code_str = '%06d' % code
+        if code_str == '600019':
+            pass
+        if code_str[0] in ['0', '3', '6']:
+            df_tmp = subdata[subdata['code']==code]
             df_sell = df_tmp[df_tmp['sell_or_buy'] == 'sell']  # 个股买卖数据
             df_buy = df_tmp[df_tmp['sell_or_buy'] == 'buy']
             if len(df_sell) > 0: # 有卖出持仓
                 if base_hold.ix[code,'deal_amount']-sum(df_sell['deal_amount'].values) <=0: # 以前持仓清仓
                     if len(df_buy)==0:   # 没有买进
-                        end_dataframe.ix[code, date[i]]=0
-                    else: # 当天持有交易数量和交易金额等于当天的成交金额和成交数量
-                        base_hold.ix[code,'deal_amount']=sum(df_buy['deal_amount'].values)
-                        base_hold.ix[code, 'deal_values']=sum(df_buy['deal_values'].values)
+                        # end_dataframe.ix[code, date[i]]=0
+                        base_hold.ix[code, 'deal_amount'] = 0
+                        base_hold.ix[code, 'deal_values'] = 0
+                    # else: # 当天持有交易数量和交易金额等于当天的成交金额和成交数量
+                    #     base_hold.ix[code,'deal_amount']=sum(df_buy['deal_amount'].values)
+                    #     base_hold.ix[code, 'deal_values']=sum(df_buy['deal_values'].values)
                 else: # 以前持仓有剩余
                    if len(df_buy)==0: # 没有买进，成交数量和金额等于上期持有数量和金额与本期卖出数量和金额的差值
                        base_hold.ix[code,'deal_amount']= base_hold.ix[code,'deal_amount']-sum(df_sell['deal_amount'].values)
                        base_hold.ix[code,'deal_values']= base_hold.ix[code,'deal_amount']*sum(df_sell['deal_values'].values)/sum(df_sell['deal_amount'].values) # 按当天的卖价计算当天的持有金额
-                   else: # 有买进，本期持有数量等于上期数量减去本期卖出，再加上本期买入
-                          # 本期持有金额等于本期买的金额+剩余持仓按今天卖价计算的金额
-                       base_hold.ix[code, 'deal_values'] = sum(df_buy['deal_values'].values)+(base_hold.ix[code,'deal_amount'] - sum(df_sell['deal_amount'].values)) *sum(df_sell['deal_values'].values)/sum(df_sell['deal_amount'].values)
-                       base_hold.ix[code, 'deal_amount'] = base_hold.ix[code, 'deal_amount'] - sum(df_sell['deal_amount'].values) + sum(df_buy['deal_amount'].values)
+                   # else: # 有买进，本期持有数量等于上期数量减去本期卖出，再加上本期买入
+                   #        # 本期持有金额等于本期买的金额+剩余持仓按今天卖价计算的金额
+                   #     base_hold.ix[code, 'deal_values'] = sum(df_buy['deal_values'].values)+(base_hold.ix[code,'deal_amount'] - sum(df_sell['deal_amount'].values)) *sum(df_sell['deal_values'].values)/sum(df_sell['deal_amount'].values)
+                   #     base_hold.ix[code, 'deal_amount'] = base_hold.ix[code, 'deal_amount'] - sum(df_sell['deal_amount'].values) + sum(df_buy['deal_amount'].values)
 
     #   没有卖
             else:
@@ -89,7 +100,8 @@ for i in range(1,len(date)):
     total[date[i]] = base_hold
     # 计算当天累计的价值
     values=sum(base_hold['deal_values'].values) # 当期持有总金额
-    end_dataframe[date[i]]=base_hold['deal_values']/values  # 第i天各股票持仓比重
+    # end_dataframe[date[i]]=base_hold['deal_values']/values if values > 0 else base_hold['deal_values'] # 第i天各股票持仓比重
+    end_dataframe[date[i]] = base_hold['deal_amount']
 
 for time in date:
     time_str = str(time)

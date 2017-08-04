@@ -4,7 +4,7 @@ from numpy import *
 from sklearn import linear_model
 import os
 from alpha.getFactor import *
-
+import datetime as dt
 reg=linear_model.LinearRegression()
 
 w.start()
@@ -89,7 +89,8 @@ def get_stock_holding_pandas(name):
     df = get_codemaker_df(df_raw)
     df.index = df['code']
 
-    return df[df.code!='511990.SZ']
+    # return df[df.code!='511990.SZ']
+    return  df
 
 
 def get_cap_percent(df, stock_df):
@@ -131,6 +132,7 @@ def get_indu_percent(df, stock_df):
         for code in stock_df['code'].values:
             try:
                 industry = df[df.code == code]["industry"].values[0]
+                # print industry
                 i = industry_lst.index(industry)
                 industry_pct[i] += stock_df["percent"][code]
             except:
@@ -220,8 +222,8 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
     df_cov.columns = df_cov.index
     # df_cov['code'] = df_cov.index.values
     try:
-        df_1 = pd.concat([df_cov, stock_df], axis=1)
-        # df_1 = df_cov.join(stock_df)
+        # df_1 = pd.concat([df_cov, stock_df], axis=1)
+        df_1 = df_cov.join(stock_df)
     except:
         # for i in stock_df.index.values:
         #     if i not in df_cov.index.values:
@@ -259,9 +261,9 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
     #     pass
     # df_2 = df_2.drop(df_2.index[-2:])
     # df_2 = df_2.fillna(0)
+    df_1 = df_1.fillna(0)
 
-
-    risk_margin = np.dot(df_1.values, df_p.values)
+    risk_margin = np.dot(df_p.values, df_1.values)
     total_risk = np.dot(risk_margin, df_p.values)
     if not filePathOut:
         return total_risk
@@ -335,6 +337,75 @@ def get_excess_stock(stock_df, bench_df):
         df_all['code'] = df_all.index
         df_all = df_all.ix[:,:2]
     return df_all
+
+
+def get_net_value(stock_path):
+    file_lst = os.listdir(stock_path)
+    df_lst = []
+    name_lst = []
+    for name in file_lst:
+        if len(name) < 5:
+            continue
+        df_stock = pd.read_excel(stock_path + '/' + name)
+        df_lst.append(df_stock)
+        name_lst.append(name.split('.')[0])
+
+    ret_lst = np.array([])
+    time_lst = []
+    for i in range(len(df_lst)):
+        print '-'*100
+        if i == 3:
+            pass
+        ret = 0
+        ret_lst_tmp = []
+        name_tmp = []
+        for j in range(len(df_lst[i])):
+            code = '%06d' % df_lst[i]['code_str'].values[j]
+            start = name_lst[i]
+            end = name_lst[i+1] if i < len(df_lst)-1 else '2017-08-01'
+            # end = (dt.datetime.strptime(end, '%Y-%m-%d') - dt.timedelta(days=6)).strftime('%Y-%m-%d')
+            df = ts.get_k_data(code, start, end)
+
+            df.index = df['date']
+            try:
+                if len(df)  < 2 :
+                    df = ts.get_k_data(code, '2015-01-01', end)
+                    df = pd.DataFrame([df['close'].values[-1]], index=[start], columns=['close'])
+                else:
+                    df = df.ix[:df.index[-2], ]
+            except:
+                traceback.print_exc()
+                pass
+            # print code, df_lst[i]['ratio'].values[j] * (df['close'].values[-1]/df['close'].values[0]-1)
+            # if df['date'].values[-1] != end:
+            #     values = df['close'].values
+            #     values = np.append(values, [values[-1]] * (len(ret_lst_tmp[0])-len(values)))
+            #     df = pd.DataFrame(values, index=ret_lst_tmp[0].index, columns=['close'])
+            ret_lst_tmp.append(df['close'])
+            name_tmp.append(df_lst[i]['code_str'].values[j])
+            df_lst[i].index = df_lst[i]['code_str']
+            # ret += df_lst[i]['ratio'].values[j] * (df['close'].values[-1]/df['close'].values[0]-1)
+        # ret_df = pd.DataFrame(ret_lst_tmp, index=name_tmp)
+        price_all = pd.concat(ret_lst_tmp, axis=1)
+        price_all.columns = name_tmp
+
+        time_lst.extend(list(price_all.index.values))
+        for c in price_all.columns:
+            s = price_all[c][np.isnan(price_all[c])]
+            if len(s) > 0:
+                lst = list(price_all[c].index.values)
+                index = lst.index(s.index.values[0])
+                price_all[c][s.index] = price_all[c][price_all[c].index[index-1]]
+        df_all = pd.concat([price_all.T, df_lst[i]], axis=1)
+        ret = np.dot(df_all.ix[:, -1].values, df_all.ix[:, :-2].values)
+        ret = ret / ret[0]
+        if len(ret_lst) > 0:
+            ret = ret * ret_lst[-1]
+        ret_lst = np.append(ret_lst, ret)
+
+    df = pd.DataFrame(ret_lst, index=time_lst)
+    df.to_excel('net_value.xlsx')
+    pass
 
 
 class stock_holding():
@@ -504,6 +575,7 @@ class stock_holding():
                 array.append(df_new['close'].values)
         cov = np.cov(array)
 
+
         return pd.DataFrame(cov, index=codes, columns=codes)
 
 
@@ -530,35 +602,35 @@ for name in file_lst:
         continue
     bench_stock_df = get_index_stocks('000300.SH', date)
     stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
-    #
+    # #
     # cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
     # indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
-
+    #
     # fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
     # fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
     # fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
     # fact_df.index = ['p','b']
 
-    # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv',encoding='utf-8')
+    # cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv', encoding='utf-8')
     # indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
     # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
 
     # 跑完上面再跑下面
     # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
     # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
-    # track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
-    # name_lst.append(date)
+    track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
+    name_lst.append(date)
     get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
 
-# get_factor_return_in_time('2015-10-01', '2016-01-01')
-# #
+# get_factor_return_in_time('2017-01-01', '2017-07-01')
 # get_stock_cov_in_time('2015-10-01', '2016-01-01')
 # get_factor_cov_in_time('2015-10-01', '2016-01-01')
 # cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
 # cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
 # cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
-# track_df = pd.DataFrame(track_lst, index=name_lst)
-# track_df.to_excel(dir_name +'/data/track_error.xlsx')
+track_df = pd.DataFrame(track_lst, index=name_lst)
+track_df.to_excel(dir_name +'/data/track_error.xlsx')
 
-get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
+# get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
+# get_net_value(dir_name)
 pass

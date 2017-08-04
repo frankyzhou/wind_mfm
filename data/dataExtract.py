@@ -200,30 +200,30 @@ class wind():
                     if i % 100 == 0:
                         print i, date_str
 
-                    if result == "" or result.rowcount == 0:  # 不存在
-                        try:
-                            data = w.wss(code, "qfa_tot_oper_rev, qfa_grossmargin, qfa_net_profit_is, qfa_opprofit,\
-                                            eps_ttm, current, debttoassets, cashtocurrentdebt, roe_avg, roa, ebitda2",
-                                         "unit=1;rptType=1;PriceAdj=F;rptDate=" + date_str).Data
+                    # if result == "" or result.rowcount == 0:  # 不存在
+                    try:
+                        data = w.wss(code, "qfa_tot_oper_rev, qfa_grossmargin, qfa_net_profit_is, qfa_opprofit,\
+                                        eps_ttm, current, debttoassets, cashtocurrentdebt, roe_avg, roa, ebitda2",
+                                     "unit=1;rptType=1;PriceAdj=F;rptDate=" + date_str).Data
 
-                            total_rev = get_no_nan(data[0][0])
-                            gross_margin = get_no_nan(data[1][0])
-                            profit = get_no_nan(data[2][0])
-                            oppo_profit = get_no_nan(data[3][0])
-                            eps = get_no_nan(data[4][0])
-                            current = get_no_nan(data[5][0])  # 流动比率
-                            debt_asset = get_no_nan(data[6][0])  # 资产负债率
-                            cash_debt = get_no_nan(data[7][0])  # 现金比率 流动现金/流动负债
-                            roe = get_no_nan(data[8][0])
-                            roa = get_no_nan(data[9][0])
-                            eb = get_no_nan(data[10][0])
-                            sql_insert = "insert into season_factors (code, date, total_rev, gross_margin, profit, eps, current, debt_asset, cash_debt, oppo_profit, roe, roa, eb) \
-                                                            values ('%s', '%s', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
-                                         % (code, date_str, total_rev, gross_margin, profit, eps, current, debt_asset, cash_debt, oppo_profit, roe, roa, eb)
-                            self.engine.execute(sql_insert)
-                        except:
-                            traceback.print_exc()
-                            self.engine = self.dao.get_engine()  # 重新连接
+                        total_rev = get_no_nan(data[0][0])
+                        gross_margin = get_no_nan(data[1][0])
+                        profit = get_no_nan(data[2][0])
+                        oppo_profit = get_no_nan(data[3][0])
+                        eps = get_no_nan(data[4][0])
+                        current = get_no_nan(data[5][0])  # 流动比率
+                        debt_asset = get_no_nan(data[6][0])  # 资产负债率
+                        cash_debt = get_no_nan(data[7][0])  # 现金比率 流动现金/流动负债
+                        roe = get_no_nan(data[8][0])
+                        roa = get_no_nan(data[9][0])
+                        eb = get_no_nan(data[10][0])
+                        sql_insert = "insert into season_factors (code, date, total_rev, gross_margin, profit, eps, current, debt_asset, cash_debt, oppo_profit, roe, roa, eb) \
+                                                        values ('%s', '%s', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+                                     % (code, date_str, total_rev, gross_margin, profit, eps, current, debt_asset, cash_debt, oppo_profit, roe, roa, eb)
+                        self.engine.execute(sql_insert)
+                    except:
+                        traceback.print_exc()
+                        self.engine = self.dao.get_engine()  # 重新连接
 
     def cal_quarter_growth(self, startdate, enddate):
         """
@@ -319,8 +319,8 @@ while 1:
         wind_ins = wind()
         # wind_ins.get_SectorConstituent("2017-07-10")
         # wind_ins.get_daily_k("2016-01-01", total=2, num=0)
-        wind_ins.get_daily_factor("2015-12-16", "2016-01-01")
-        # wind_ins.get_quarter_factor("2015-06-01", "2015-09-01")
+        # wind_ins.get_daily_factor("2017-07-11", "2017-07-31")
+        wind_ins.get_quarter_factor("2017-03-01", "2017-09-01")
         # wind_ins.cal_quarter_growth("2015-06-01", "2016-02-01")
 
         # wind_ins.get_momentum("2015-09-01", "2016-01-01", 5, 0)
