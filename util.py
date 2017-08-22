@@ -4,6 +4,7 @@ import numpy as np
 from math import *
 import pandas as pd
 
+
 def is_season_report(trade_date):
     if trade_date.month == 3 or trade_date.month == 12:
         if trade_date.day == 31:
@@ -41,6 +42,7 @@ def find_seasonday(date_str):
     :return:
     '''
     date = dt.datetime.strptime(date_str, '%Y-%m-%d')
+    date = date - dt.timedelta(days=60)
     while not is_season_report(date):
         date = date - dt.timedelta(days=1)
     return date
@@ -54,22 +56,16 @@ def get_no_nan(data):
             return data
     except:
         return "NULL"
-    # result = float(0)
-    # try:
-    #     result = float(data)
-    #     return result
-    # except:
-    #     return "NULL"
+
 
 # print get_no_nan("0.2g1")
-
-
 def get_maker(code):
     code = unicode('{:0>6}'.format(code))
     if code[0] == '6':
         return code+".SH"
     else:
         return code+".SZ"
+
 
 def get_codemaker_df(df):
     e_lst = []

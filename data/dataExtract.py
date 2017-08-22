@@ -188,13 +188,13 @@ class wind():
                 codes = all_stock[1]
                 i = 0
                 for code in codes:
-                    try:
-                        sql_exist = "select code from season_factors where code='%s' and date='%s'" % (code, date_str)
-                        result = self.engine.execute(sql_exist)
-                    except:
-                        traceback.print_exc()
-                        result = ""
-                        self.engine = self.dao.get_engine()  # 重新连接
+                    # try:
+                    #     sql_exist = "select code from season_factors where code='%s' and date='%s'" % (code, date_str)
+                    #     result = self.engine.execute(sql_exist)
+                    # except:
+                    #     traceback.print_exc()
+                    #     result = ""
+                    #     self.engine = self.dao.get_engine()  # 重新连接
 
                     i += 1
                     if i % 100 == 0:
@@ -222,8 +222,13 @@ class wind():
                                      % (code, date_str, total_rev, gross_margin, profit, eps, current, debt_asset, cash_debt, oppo_profit, roe, roa, eb)
                         self.engine.execute(sql_insert)
                     except:
+                        # sql_insert = "update season_factors set total_rev=%s, gross_margin=%s, profit =%s, eps=%s, current=%s, debt_asset=%s, cash_debt=%s, \
+                        #              oppo_profit=%s, roe=%s, roa=%s, eb=%s  where code='%s' and date='%s'" \
+                        #              % (total_rev, gross_margin, profit, eps, current, debt_asset,
+                        #                 cash_debt, oppo_profit, roe, roa, eb, code, date_str)
                         traceback.print_exc()
                         self.engine = self.dao.get_engine()  # 重新连接
+                        # self.engine.execute(sql_insert)
 
     def cal_quarter_growth(self, startdate, enddate):
         """

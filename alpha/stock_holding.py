@@ -16,7 +16,7 @@ def open_excel(file= 'file.xls'):
     try:
         data = xlrd.open_workbook(file)
         return data
-    except Exception,e:
+    except Exception, e:
         print str(e)
 
 
@@ -26,9 +26,9 @@ def excel_table_byindex(file,colnameindex,by_index=0):
     table = data.sheets()[by_index]
     nrows = table.nrows #行数
     ncols = table.ncols #列数
-    colnames =  table.row_values(colnameindex) #某一行数据
+    colnames = table.row_values(colnameindex) #某一行数据
     list =[]
-    for rownum in range(1,nrows):
+    for rownum in range(colnameindex+1, nrows):
          row = table.row_values(rownum)
          if row:
              app = {}
@@ -53,27 +53,31 @@ def get_index_stocks(index, date):
 
 def get_stock_holding(name):
     stock_lst = []
-    code = u'证券代码'
-    percent = u'持仓市值(净价)/单元净值(%)'
-    tables = excel_table_byindex(name+'.xls', 0)
+    # code = u'证券代码'
+    # percent = u'持仓市值(净价)/单元净值(%)'
+    code = u'科目代码'
+    percent = u'市值占净值%'
+    tables = excel_table_byindex(name+'.xls', 3)
     sum_percent = 0
     for row in tables:
-        # if row[code][:4] == '1102' and len(row[code]) > 10:
-        #     stock = {}
-        #     stock_code = row[code][-6:]
-        #     maker = "H" if stock_code[0] == '6' else "Z"
-        #     stock["code"] = stock_code + ".S" + maker
-        #     stock["percent"] = row[percent]
-        #     sum_percent += row[percent]
-        #     stock_lst.append(stock)
-        stock = {}
-        stock_code = row[code]
-        if len(stock_code) == 6 and stock_code[0] in ['0','3','6']:
+        if row[code][:4] == '1102' and len(row[code]) > 10 and row[code][5:8] != '199':
+            stock = {}
+            stock_code = row[code][-6:]
+            if stock_code == u'310232':
+                pass
             maker = "H" if stock_code[0] == '6' else "Z"
             stock["code"] = stock_code + ".S" + maker
             stock["percent"] = row[percent]
             sum_percent += row[percent]
             stock_lst.append(stock)
+        # stock = {}
+        # stock_code = row[code]
+        # if len(stock_code) == 6 and stock_code[0] in ['0','3','6']:
+        #     maker = "H" if stock_code[0] == '6' else "Z"
+        #     stock["code"] = stock_code + ".S" + maker
+        #     stock["percent"] = row[percent]
+        #     sum_percent += row[percent]
+        #     stock_lst.append(stock)
     if sum_percent > 0:
         for stock in stock_lst:
             stock["percent"] = stock["percent"] / sum_percent
@@ -221,9 +225,10 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
     df_cov = pd.read_csv(filePathIn + date_str + '.csv', index_col=0)
     df_cov.columns = df_cov.index
     # df_cov['code'] = df_cov.index.values
+
     try:
-        # df_1 = pd.concat([df_cov, stock_df], axis=1)
-        df_1 = df_cov.join(stock_df)
+        df_1 = pd.concat([df_cov, stock_df], axis=0)
+        # df_1 = df_cov.join(stock_df)
     except:
         # for i in stock_df.index.values:
         #     if i not in df_cov.index.values:
@@ -243,9 +248,26 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
                 index_delete.append(i)
         tmp.drop(tmp.index[index_delete],inplace=True)
         df_1 = tmp
-    df_p = df_1['percent'].fillna(0)
+
+    df_1['code'] = df_1.index
+    # df_1.fillna(0, inplace=True)
+    df_1.drop_duplicates(subset=['code'], inplace=True, keep='last')
+
+    for i in df_1.index.values:
+        if i not in list(df_1.columns.values):
+            df_1[i] = df_1.ix[i,:]
+
+    df_1.fillna(0.01, inplace=True)
+
+    if 'percent_x' in df_1.columns:
+        df_p = df_1['percent_x']
+        del df_1['percent_x']
+    else:
+        df_p = df_1['percent']
+        del df_1['percent']
     del df_1['code']
-    del df_1['percent']
+
+    # df_1 = df_1.ix[:,:-2]
 
     # df_2 = df_p
     # try:
@@ -261,7 +283,6 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
     #     pass
     # df_2 = df_2.drop(df_2.index[-2:])
     # df_2 = df_2.fillna(0)
-    df_1 = df_1.fillna(0)
 
     risk_margin = np.dot(df_p.values, df_1.values)
     total_risk = np.dot(risk_margin, df_p.values)
@@ -281,8 +302,8 @@ def get_stock_risk(date_str, stock_df, filePathIn, filePathOut=None):
 
 def get_track_error(stock_df, bench_df, date_str, filePathIn):
     if len(stock_df) > 0:
-        df_all = pd.concat([stock_df, bench_df], join='outer', axis=1).fillna(0)
-        df_all.ix[:,1] = df_all.ix[:,1] - df_all.ix[:,3]
+        df_all = pd.merge(stock_df, bench_df, on='code', how='outer').fillna(0)
+        df_all.ix[:,1] = df_all.ix[:,1] - df_all.ix[:,2]
         df_all['code'] = df_all.index
         df_all = df_all.ix[:,:2]
     else:
@@ -331,12 +352,13 @@ def get_fact_alpha(return_path, factor_path, filePathOut):
 def get_excess_stock(stock_df, bench_df):
     df_all = pd.DataFrame()
     if len(stock_df) > 0:
-        df_all = pd.concat([stock_df, bench_df], join='outer', axis=1).fillna(0)
-        df_all = df_all.ix[stock_df.index]
-        df_all.ix[:,1] = df_all.ix[:,1] - df_all.ix[:,3]
-        df_all['code'] = df_all.index
-        df_all = df_all.ix[:,:2]
-    return df_all
+        # df_all = pd.concat([stock_df, bench_df], join='outer', axis=1).fillna(0)
+        df_all = pd.merge(stock_df, bench_df,left_index=True,right_index=True,how='outer', on='code').fillna(0)
+        # df_all = df_all.ix[stock_df.index]
+        df_all.ix[:,1] = df_all.ix[:,1] - df_all.ix[:,2]
+        # df_all['code'] = df_all.index
+        df_all.index = df_all['code']
+    return df_all.ix[:,:2]
 
 
 def get_net_value(stock_path):
@@ -584,21 +606,47 @@ class stock_holding():
 # plt.rcParams['axes.unicode_minus']=False #用来正常显示负号
 
 # dir_name = 'lianghua3'
-# dir_name = 'longwu'
-dir_name = 'interview'
+dir_name = 'longwu'
+# dir_name = 'interview'
 file_lst = os.listdir(dir_name)
 s_h = stock_holding()
 track_lst = []
 name_lst = []
+
 for name in file_lst:
     if len(name) < 5:
         continue
     date = name.split('.')[0]
     print date
 
-    # stock_df = get_stock_holding(dir_name + "/" + date)
-    stock_df = get_stock_holding_pandas(dir_name + "/" + date)
-    if len(stock_df) ==0:
+    stock_df = get_stock_holding(dir_name + "/" + date)
+    # stock_df = get_stock_holding_pandas(dir_name + "/" + date)
+    if len(stock_df) == 0:
+        continue
+    bench_stock_df = get_index_stocks('000300.SH', date)
+    stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
+    #
+    cap_df = s_h.get_cap_percent(stock_df, bench_stock_df, date)
+    indu_df = s_h.get_inds_percent(stock_df, bench_stock_df)
+
+    fact_df_porfolio = s_h.get_factor_percent(stock_df, date)
+    fact_df_benchmark = s_h.get_factor_percent(bench_stock_df, date)
+    fact_df = pd.concat([fact_df_porfolio, fact_df_benchmark])
+    fact_df.index = ['p','b']
+
+    cap_df.to_csv(dir_name +'/data/cap/cap_df_'+date+'.csv', encoding='utf-8')
+    indu_df.to_csv(dir_name +'/data/indu/indu_df_'+date+'.csv',encoding='utf-8')
+    fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
+
+for name in file_lst:
+    if len(name) < 5:
+        continue
+    date = name.split('.')[0]
+    print date
+
+    stock_df = get_stock_holding(dir_name + "/" + date)
+    # stock_df = get_stock_holding_pandas(dir_name + "/" + date)
+    if len(stock_df) == 0:
         continue
     bench_stock_df = get_index_stocks('000300.SH', date)
     stock_dif_df = get_excess_stock(stock_df, bench_stock_df)
@@ -616,20 +664,24 @@ for name in file_lst:
     # fact_df.to_csv(dir_name +'/data/fact/fact_df_'+date+'.csv',encoding='utf-8')
 
     # 跑完上面再跑下面
-    # get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
-    # get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
+
+    get_stock_risk(date, stock_df, dir_name +'/data/stock_cov/stock_cov_', dir_name +'/data/stock_risk/stock_risk_')
+    get_stock_risk(date, stock_dif_df, dir_name + '/data/stock_cov/stock_cov_', dir_name + '/data/stock_excess_risk/stock_excess_risk_')
     track_lst.append(get_track_error(stock_df, bench_stock_df, date, dir_name +'/data/stock_cov/stock_cov_'))
     name_lst.append(date)
     get_fact_risk(date, dir_name +'/data/fact/fact_df_', dir_name +'/data/fact_cov/fact_cov_', dir_name +'/data/fact_risk/fact_risk_')
 
-# get_factor_return_in_time('2017-01-01', '2017-07-01')
-# get_stock_cov_in_time('2015-10-01', '2016-01-01')
+# get_factor_return_in_time('2017-01-06', '2017-01-11')
+# get_stock_cov_in_time('2017-01-05', '2017-01-11')
+
 # get_factor_cov_in_time('2015-10-01', '2016-01-01')
 # cal_df_dif(dir_name +'/data/cap', dir_name +'/data/cap_dif.csv')
 # cal_df_dif(dir_name +'/data/indu', dir_name +'/data/indu_dif.csv')
+
 # cal_df_dif(dir_name +'/data/fact', dir_name +'/data/fact_dif.csv')
 track_df = pd.DataFrame(track_lst, index=name_lst)
 track_df.to_excel(dir_name +'/data/track_error.xlsx')
+
 
 # get_fact_alpha(dir_name +'/data/return', dir_name + '/data/fact_dif.csv', dir_name + '/data/fact_alpha.xlsx')
 # get_net_value(dir_name)
